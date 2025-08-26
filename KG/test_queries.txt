@@ -1,0 +1,14 @@
+Le sinistre numéro 20003000531 est-il couvert par les garanties du contrat associé ?
+Donne-moi les garanties et leur capital assuré pour le contrat 2025611009101 ?
+Quel est le statut de paiement des contrats du client avec REF_PERSONNE 12106 ?
+Quel est le statut du sinistre numéro 20033000932  pour le client avec REF_PERSONNE 1183 ?
+Quels sont les contrats du client avec REF_PERSONNE 117578  ayant la garantie 'DECES - I.D.T' et leur statut de paiement ?
+Quelles garanties sont souscrites par le client avec REF_PERSONNE 117578 , et quelles sont leurs descriptions ?
+Le sinistre numéro 20206000315  est-il couvert par la garantie 'DEGATS DES EAUX' dans son contrat associé    
+Quel est le statut de paiement des contrats du client avec REF_PERSONNE 13209  pour le produit 'MULTIRISQUES HABITATIONS OCCUPANT' ?
+Quel est l’état du sinistre numéro 20175000077 pour le client avec REF_PERSONNE 331363 ?
+Quelles sont les garanties avec un capital assuré supérieur à 5000 pour le sinistre numéro 20193002051 ? 
+Quelles sont les garanties incluses dans tous les contrats du client avec REF_PERSONNE 247830 ayant un capital assuré non nul ?
+Le sinistre numéro 20206000315 a-t-il une couverture pour 'RESPONSABILITE CIVILE' ?    
+Quel est le statut des sinistres associés aux contrats du client avec REF_PERSONNE 44849
+Quelles sont les descriptions des garanties couvrant le sinistre numéro 20195000008 ?

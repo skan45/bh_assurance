@@ -1,0 +1,43 @@
+# Python cache / build
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.build/
+.dist/
+
+# Virtual environments
+venv/
+.env*/
+.env
+
+# Environment & secrets
+*.env
+!example.env
+
+# Logs / temp
+*.log
+*.tmp
+*.temp
+
+# Jupyter / notebooks checkpoints
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Qdrant / vector stores (adjust if needed)
+vectorstore/
+
+# Local data artifacts
+*.sqlite3
+*.db
+
+# Neo4j dumps
+*.dump

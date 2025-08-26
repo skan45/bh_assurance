@@ -1,0 +1,118 @@
+[
+  {
+    "timestamp": "2025-08-26T16:20:39.751740Z",
+    "query": "Quel est le statut des sinistres associés aux contrats du client avec REF_PERSONNE 44849",
+    "cypher": "MATCH (p:PersonneMorale|PersonnePhysique {ref_personne: 44849})-[:A_SOUSCRIT]->(c:Contrat)\nMATCH (s:Sinistre)-[:CONCERNE]->(c)\nRETURN DISTINCT s.lib_etat_sinistre\nLIMIT 100",
+    "result_keys": [
+      "s.lib_etat_sinistre"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-26T16:21:56.493708Z",
+    "query": "Je suis le client dont ma matricle fiscale est 0000716X , quel sont mes sinitres ?",
+    "cypher": "MATCH (p:PersonneMorale {matricule_fiscale: \"0000716X\"})-[:A_SOUSCRIT]->(c:Contrat)<-[:CONCERNE]-(s:Sinistre)\nRETURN DISTINCT s\nLIMIT 100",
+    "result_keys": [
+      "s"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-26T16:22:29.337192Z",
+    "query": "donne moi leurs num contracts",
+    "cypher": "MATCH (p:PersonneMorale|PersonnePhysique)-[:A_SOUSCRIT]->(c:Contrat)\nRETURN c.num_contrat\nLIMIT 100",
+    "result_keys": [
+      "c.num_contrat"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-26T16:23:35.410856Z",
+    "query": "Je suis le client dont ma matricle fiscale est 0000716X , quel sont mes sinitres ?",
+    "cypher": "MATCH (p:PersonneMorale|PersonnePhysique)-[:A_SOUSCRIT]->(c:Contrat)<-[:CONCERNE]-(s:Sinistre)\nWHERE p.matricule_fiscale = '0000716X'\nRETURN DISTINCT s\nLIMIT 100",
+    "result_keys": [
+      "s"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-26T16:26:45.841055Z",
+    "query": "Je suis le client dont ma matricle fiscale est 0000716X , quel sont mes sinitres ?",
+    "cypher": "MATCH (p:PersonneMorale|PersonnePhysique)-[:A_SOUSCRIT]->(c:Contrat)<-[:CONCERNE]-(s:Sinistre)\nWHERE p.matricule_fiscale = '0000716X'\nRETURN DISTINCT s\nLIMIT 100",
+    "result_keys": [
+      "s"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-26T16:27:08.254164Z",
+    "query": "donne moi leurs numero du sinistre",
+    "cypher": "MATCH (s:Sinistre)\nWHERE s.num_sinistre IN [20155000131, 20175000077, 20185000066]\nRETURN s.num_sinistre\nLIMIT 100",
+    "result_keys": [
+      "s.num_sinistre"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-26T16:32:03.415950Z",
+    "query": "Le sinistre numéro 20206000315 a-t-il une couverture",
+    "cypher": "MATCH (s:Sinistre {num_sinistre: 20206000315})-[:CONCERNE]->(c:Contrat)-[r:INCLUT]->(g:Garantie)\nRETURN c, g\nLIMIT 100",
+    "result_keys": [
+      "c",
+      "g"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-26T16:34:13.537151Z",
+    "query": "Le sinistre numéro 20206000315 a-t-il une couverture",
+    "cypher": "MATCH (s:Sinistre {num_sinistre: 20206000315})-[:CONCERNE]->(c:Contrat)-[r:INCLUT]->(g:Garantie)\nRETURN s, c, r, g\nLIMIT 100",
+    "result_keys": [
+      "s",
+      "c",
+      "r",
+      "g"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-26T16:34:26.800521Z",
+    "query": "Quelles sont les garanties avec un capital assuré supérieur à 5000 pour le sinistre numéro 20193002051 ?",
+    "cypher": "MATCH (s:Sinistre {num_sinistre: 20193002051})-[:CONCERNE]->(c:Contrat)-[r:INCLUT]->(g:Garantie)\nWHERE r.capital_assure > 5000\nRETURN DISTINCT g, r.capital_assure\nLIMIT 100",
+    "result_keys": [
+      "g",
+      "r.capital_assure"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-26T16:35:07.002101Z",
+    "query": "Le sinistre numéro 20206000315  est-il couvert par la garantie 'DEGATS DES EAUX' dans son contrat associé",
+    "cypher": "MATCH (s:Sinistre {num_sinistre: 20206000315})-[:CONCERNE]->(c:Contrat)-[r:INCLUT]->(g:Garantie {lib_garantie: 'DEGATS DES EAUX'})\nRETURN s, c, g\nLIMIT 100",
+    "result_keys": [
+      "s",
+      "c",
+      "g"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-26T16:35:37.141825Z",
+    "query": "quel est le client ayant Le sinistre numéro 20206000315",
+    "cypher": "MATCH (s:Sinistre {num_sinistre: 20206000315})-[:CONCERNE]->(c:Contrat)<-[:A_SOUSCRIT]-(p:PersonneMorale|PersonnePhysique)\nRETURN p.ref_personne, p\nLIMIT 100",
+    "result_keys": [
+      "p.ref_personne",
+      "p"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-26T16:36:37.597374Z",
+    "query": "avait t il un sinisttre couvert par la garantie 'DEGATS DES EAUX' dans son contrat associé",
+    "cypher": "MATCH (s:Sinistre {num_sinistre: 20206000315})-[:CONCERNE]->(c:Contrat)-[:INCLUT]->(g:Garantie {lib_garantie: 'DEGATS DES EAUX'})\nRETURN  EXISTS {\n    MATCH (s)-[:CONCERNE]->(c)-[:INCLUT]->(g)\n}\nLIMIT 100",
+    "result_keys": [
+      "EXISTS {\n    MATCH (s)-[:CONCERNE]->(c)-[:INCLUT]->(g)\n}"
+    ],
+    "result_count": 1
+  }
+]

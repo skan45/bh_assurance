@@ -1,0 +1,10 @@
+qdrant-client==1.12.0
+fastembed==0.3.6
+python-dotenv==1.0.1
+PyPDF2==3.0.1
+azure-ai-inference==0.1.0
+azure-core==1.26.0
+tqdm==4.66.4
+openai>=1.0.0
+openpyxl>=3.1.2
+chardet>=5.2.0
