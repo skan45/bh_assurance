@@ -5,25 +5,22 @@ from datetime import datetime, timezone
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from fastembed import TextEmbedding
-from neo4j import GraphDatabase
+from db import GraphDatabase
 from openai import OpenAI
 from dotenv import load_dotenv
 from typing import List, Dict, Any
 
 load_dotenv()
-
-# Configuration for Qdrant Agent (Part 1: Product Comprehension)
 QDRANT_URL = os.getenv("QDRANT_URL", "")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
-COLLECTION_NAME = "docs_embeddings"
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "docs_embeddings")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
-
 # Configuration for Neo4j Agent (Part 2: Client Data Analysis)
-NEO4J_URI = "neo4j+s://cd477924.databases.neo4j.io"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "RZbkJ7D1h9qp4HdiVKK1l8K3Y5I3tZjnwF939p0Uoz0"
-NEO4J_DATABASE = "neo4j"
+NEO4J_URI = os.getenv("NEO4J_URI", "")
+NEO4J_USER = os.getenv("NEO4J_USER", "")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
+NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "")
 
 # Persistent conversation memory for Qdrant Agent
 conversation_history = []

@@ -10,5 +10,11 @@
     "response": "La garantie couvrant le sinistre numéro 20195000008, dans le cadre du produit TRANSPORT CORPS AVIATION, inclut une couverture tous risques plus vol. Cela signifie qu'en plus de protéger contre tous types de dommages, elle couvre également les cas de vol et la disparition totale ou partielle des marchandises.",
     "category": "client",
     "timestamp": "2025-08-26T19:39:01.382738"
+  },
+  {
+    "query": "Tell me about BH Assurance products",
+    "response": "Of course! BH Assurance offers a variety of insurance products tailored to meet different needs. When it comes to auto insurance, they provide comprehensive coverage options that include liability coverage, collision, and theft protection. These plans are designed to ensure that you're well-protected on the road, whether you're dealing with minor incidents or more serious accidents.\n\nAdditionally, BH Assurance offers add-ons and customizable options, allowing you to adjust your policy according to your specific requirements. This could include roadside assistance, legal assistance, or coverage for personal belongings in the vehicle.\n\nIf you want more detailed information about their offerings or need help deciding which options are best for you, I recommend reaching out directly to BH Assurance. Their team is always ready to help with any questions you might have!",
+    "category": "product",
+    "timestamp": "2025-08-28T16:40:50.473377"
   }
 ]

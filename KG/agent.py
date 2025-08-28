@@ -3,7 +3,7 @@ import json
 import re
 from datetime import datetime, timezone
 from dotenv import load_dotenv
-from neo4j import GraphDatabase
+from db import GraphDatabase
 from openai import OpenAI
 from typing import List, Dict, Any
 

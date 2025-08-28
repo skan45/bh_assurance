@@ -2,7 +2,7 @@ import os
 import argparse
 from typing import List, Dict, Any, Iterator
 import pandas as pd
-from neo4j import GraphDatabase
+from db import GraphDatabase
 try:
     from tqdm import tqdm
 except ImportError:  # fallback if not installed
