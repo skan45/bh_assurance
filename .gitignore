@@ -7,6 +7,8 @@ __pycache__/
 *.egg-info/
 .build/
 .dist/
+frontend/node_modules
+frontend/package-lock.json
 
 # Virtual environments
 venv/
