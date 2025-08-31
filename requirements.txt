@@ -1,12 +1,39 @@
-qdrant-client==1.12.0
-fastembed==0.7.2
-python-dotenv==1.0.1
-PyPDF2==3.0.1
-tqdm==4.66.4
-openai>=1.0.0
-openpyxl>=3.1.2
-chardet>=5.2.0
+# FastAPI
+fastapi==0.110.0
+uvicorn[standard]==0.23.1
+gunicorn==21.2.0
+
+# Redis async client
+redis[async]==6.4.0
+
+# PostgreSQL
+databases[postgresql]
+asyncpg
+psycopg2-binary
+
+# Neo4j
 neo4j
-fastapi
-uvicorn
-redis
+
+# OpenAI
+openai
+
+# Bcrypt for password hashing
+bcrypt
+
+# dotenv
+python-dotenv
+
+# PDF generation
+reportlab
+
+# Optional: for data processing / embeddings
+numpy
+faiss-cpu
+fastembed
+
+# Pydantic
+pydantic
+
+# Requests for any HTTP calls
+requests
+

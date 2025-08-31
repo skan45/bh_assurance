@@ -3,7 +3,9 @@ import argparse
 import csv
 from typing import List, Dict, Any, Iterator
 import pandas as pd
-from db import GraphDatabase
+from neo4j import GraphDatabase
+from dotenv import load_dotenv
+load_dotenv()
 try:
     from tqdm import tqdm
 except ImportError:  # fallback if not installed
@@ -141,19 +143,19 @@ def main():
     parser.add_argument(
         "--garanties",
         required=False,
-        default="added_data\\Description_garanties.xlsx",
+        default="./added_data/Description_garanties.xlsx",
         help="Path to the Garanties Excel workbook (default: added_data\\Description_garanties.xlsx in current folder)"
     )
     parser.add_argument(
         "--contrat-garanties",
         required=False,
-        default="added_data\\Données_Assurance_S1.2_S2.csv",
-        help="Path to the Contrat-Garanties Excel workbook (default: added_data\\Données_Assurance_S1.2_S2.csv in current folder)"
+        default="./added_data/Données_Assurance_S1.2_S2.csv",
+        help="Path to the Contrat-Garanties CSV file (default: added_data\\Données_Assurance_S1.2_S2.csv in current folder)"
     )
-    parser.add_argument("--uri", default=os.getenv("NEO4J_URI", "neo4j+s://cd477924.databases.neo4j.io"), help="Neo4j bolt/neo4j URI (use neo4j+s:// for Aura)")
-    parser.add_argument("--user", default=os.getenv("NEO4J_USER", "neo4j"), help="Neo4j username")
-    parser.add_argument("--password", default=os.getenv("NEO4J_PASSWORD","RZbkJ7D1h9qp4HdiVKK1l8K3Y5I3tZjnwF939p0Uoz0"), help="Neo4j password (or set NEO4J_PASSWORD env var)")
-    parser.add_argument("--database", default=os.getenv("NEO4J_DATABASE", "neo4j"), help="Database name (Aura default 'neo4j')")
+    parser.add_argument("--uri", default=os.getenv("NEO4J_URI", ""), help="Neo4j URI (default: neo4j://127.0.0.1:7687 for Neo4j Desktop)")
+    parser.add_argument("--user", default=os.getenv("NEO4J_USER", ""), help="Neo4j username (default: neo4j)")
+    parser.add_argument("--password", default=os.getenv("NEO4J_PASSWORD", ""), help="Neo4j password (set NEO4J_PASSWORD env var or provide via --password)")
+    parser.add_argument("--database", default=os.getenv("NEO4J_DATABASE", ""), help="Database name (default: neo4j for Neo4j Desktop)")
     parser.add_argument("--batch-size", type=int, default=1000)
     parser.add_argument("--no-progress", action="store_true", help="Disable tqdm progress bars")
     args = parser.parse_args()
@@ -168,7 +170,7 @@ def main():
     if not os.path.isabs(contrat_garanties_path):
         contrat_garanties_path = os.path.join(os.path.dirname(__file__), contrat_garanties_path)
     if not os.path.exists(contrat_garanties_path):
-        raise FileNotFoundError(f"Contrat-Garanties Excel file not found at: {contrat_garanties_path}")
+        raise FileNotFoundError(f"Contrat-Garanties CSV file not found at: {contrat_garanties_path}")
 
     # -----------------------------
     # Unified readers (Excel or CSV)
@@ -238,8 +240,9 @@ def main():
     except Exception as e:
         raise SystemExit(
             f"Connection failed to {args.uri} as {args.user}: {e}\n"
-            "Tips: 1) Use neo4j+s:// URI for Aura (copy from Connection Details). "
-            "2) Ensure username/password are correct. 3) If rotating credentials, re-download the Aura connection string." )
+            "Tips: 1) Ensure Neo4j Desktop is running and the database is active. "
+            "2) Verify the URI (neo4j://127.0.0.1:7687) matches your Neo4j Desktop settings. "
+            "3) Check username (neo4j) and password (azerty2002) in Neo4j Desktop." )
 
     # One session for constraints (schema ops) then short sessions per batch for data
     with driver.session(database=args.database) as session:

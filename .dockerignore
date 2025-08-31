@@ -1,0 +1,28 @@
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env
+
+# Git files
+.git
+.gitignore
+
+# Docker files (if you don’t want nested builds)
+Dockerfile*
+docker-compose*.yml
+
+# Logs and temporary files
+*.log
+*.sqlite3
+*.db
+*.bak
+*.swp
+*.DS_Store
+agent_memory.json
+KG/
+process_PDF/
