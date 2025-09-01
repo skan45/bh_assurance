@@ -6,9 +6,11 @@ from final_agent import initialize_embedding_model, Neo4jAgent
 from routes.query_routes import get_query_router
 from routes.auth_routes import get_auth_router
 from routes.history_routes import get_user_chats_router
+from routes.user_routes import get_user_router
 from database import database
 from pydantic import BaseModel
 from routes.devis_route  import router as devis_router
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 # Redis Config
@@ -18,6 +20,14 @@ REDIS_DB = int(os.getenv("REDIS_DB",0 ))
 CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", 3600 ))
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  
+    allow_credentials=True,
+    allow_methods=["*"],  
+    allow_headers=["*"],  
+)
 
 class QueryRequest(BaseModel):
     query: str
@@ -42,9 +52,10 @@ async def startup_event():
 async def shutdown():
     await database.disconnect()
     neo4j_agent.close()
-    
+user_router= get_user_router(database)
 history_router=get_user_chats_router(database)
 auth_router = get_auth_router(database)
+app.include_router(user_router,prefix="/api")
 app.include_router(history_router, prefix="/api/history")
 app.include_router(auth_router, prefix="/api/auth")
 app.include_router(devis_router, prefix="/api")
@@ -52,4 +63,3 @@ app.include_router(devis_router, prefix="/api")
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True, log_level="debug")
-

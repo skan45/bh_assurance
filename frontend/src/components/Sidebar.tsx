@@ -1,55 +1,51 @@
-import { Clock, FileText, Car, MapPin, Phone, Package } from "lucide-react";
+import { useState, useEffect } from "react";
 
-const timelineItems = [
-  {
-    period: "AUJOURD'HUI",
-    items: [
-      { icon: FileText, text: "Paiements de mes contrats" },
-      { icon: Car, text: "Garanties de mon assurance automobile" },
-    ]
-  },
-  {
-    period: "HIER", 
-    items: [
-      { icon: Clock, text: "Délai d'indemnisation après sinistre" },
-      { icon: FileText, text: "Mon dernier sinistre déclaré" },
-      { icon: FileText, text: "Exclusions de la garantie décès" },
-      { icon: MapPin, text: "Trouver une agence BH Assurances" },
-    ]
-  },
-  {
-    period: "SEMAINE DERNIÈRE",
-    items: [
-      { icon: MapPin, text: "Trouver une agence BH Assurances" },
-      { icon: Phone, text: "Contacter un conseiller client" },
-      { icon: Package, text: "Produits et offres disponibles" },
-    ]
-  }
-];
+interface ChatRoom {
+  chat_id: number;
+  chat_name: string;
+}
 
 const Sidebar = () => {
+  const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
+  const token = import.meta.env.VITE_CHAT_API_TOKEN;
+
+  useEffect(() => {
+    const fetchChatRooms = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/history/user_chats`, {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch chat rooms");
+
+        const data = await res.json();
+        setChatRooms(data.chats);
+      } catch (error) {
+        console.error("Error fetching chat rooms:", error);
+      }
+    };
+
+    fetchChatRooms();
+  }, []);
+
   return (
     <aside className="w-80 bg-sidebar-bg border border-border h-full flex flex-col m-2 shadow-sm">
-      {/* Timeline Items */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {timelineItems.map((timeline, timelineIndex) => (
-          <div key={timelineIndex} className="space-y-3">
-            <h3 className="text-xs font-medium text-muted-foreground tracking-wide">
-              {timeline.period}
-            </h3>
-            <div className="space-y-2">
-              {timeline.items.map((item, itemIndex) => (
-                <div
-                  key={itemIndex}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent cursor-pointer transition-colors"
-                >
-                  <item.icon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">{item.text}</span>
-                </div>
-              ))}
+        {chatRooms.length === 0 ? (
+          <div className="text-sm text-muted-foreground">Aucune conversation</div>
+        ) : (
+          chatRooms.map((chat) => (
+            <div
+              key={chat.chat_id}
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent cursor-pointer transition-colors"
+            >
+              <span className="text-sm text-foreground">{chat.chat_name}</span>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </aside>
   );
