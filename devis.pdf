@@ -1,1 +1,0 @@
-{"detail":"Error fetching devis data from API: 400 Client Error: Bad Request for url: https://apidevis.onrender.com/api/auto/packs?n_cin=12345678&valeur_venale=50000.0&nature_contrat=auto&nombre_place=4&valeur_a_neuf=60000.0&date_premiere_mise_en_circulation=2020-01-01&capital_bris_de_glace=1000.0&capital_dommage_collision=2000.0&puissance=8&classe=2"}
