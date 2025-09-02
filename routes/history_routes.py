@@ -40,6 +40,6 @@ def get_user_chats_router(database: Database):
                 "timestamp": conv["timestamp"]
             } for conv in conversations
         ]}
-
+    
+    
     return router
-
