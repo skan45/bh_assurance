@@ -12,7 +12,6 @@ conn = psycopg2.connect(
 )
 cur = conn.cursor()
 
-
 # --- Create users table ---
 cur.execute("""
 CREATE TABLE IF NOT EXISTS users (
@@ -48,10 +47,20 @@ CREATE TABLE IF NOT EXISTS conversations (
 );
 """)
 
+# --- Create messages table ---
+cur.execute("""
+CREATE TABLE IF NOT EXISTS messages (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    sujet TEXT,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+""")
+
 # --- Commit and close ---
 conn.commit()
 cur.close()
 conn.close()
 
 print("Migration complete ✅")
-

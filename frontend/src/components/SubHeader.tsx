@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import QuoteModal from './QuoteModal'; // Import the modal component
+import ContactModal from './ContactModal'; // Import the contact modal component
 
 export default function SubHeader() {
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   return (
     <>
@@ -20,7 +22,10 @@ export default function SubHeader() {
           >
             Demander un devis
           </button>
-          <button className="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition">
+          <button 
+            onClick={() => setIsContactModalOpen(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition"
+          >
             Contacter un conseiller
           </button>
         </div>
@@ -30,6 +35,12 @@ export default function SubHeader() {
       <QuoteModal 
         isOpen={isQuoteModalOpen} 
         onClose={() => setIsQuoteModalOpen(false)} 
+      />
+
+      {/* Contact Modal */}
+      <ContactModal 
+        isOpen={isContactModalOpen} 
+        onClose={() => setIsContactModalOpen(false)} 
       />
     </>
   );
