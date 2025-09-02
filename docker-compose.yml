@@ -9,14 +9,16 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-     neo4j2:
-      condition: service_healthy
-     postgres:
-      condition: service_started
-     redis:
-      condition: service_started
-     qdrant:
-      condition: service_started
+      neo4j2:
+        condition: service_healthy
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      ollama:
+        condition: service_started
     networks:
       - backend
     command: >
@@ -62,10 +64,10 @@ services:
       - neo4jdata:/data
       - neo4jlogs:/logs
     healthcheck:
-     test: ["CMD-SHELL", "cypher-shell -u neo4j -p azerty2002 'RETURN 1' || exit 1"]
-     interval: 10s
-     timeout: 10s
-     retries: 10
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p azerty2002 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -78,13 +80,25 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    networks:
+      - backend
+    volumes:
+      - ollama_models:/root/.ollama  # persistent model storage
+    command: serve
+
 volumes:
   pgdata:
   neo4jdata:
   neo4jlogs:
   qdrant_data:
+  ollama_models:
 
 networks:
   backend:
     driver: bridge
-

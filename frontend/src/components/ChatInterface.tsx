@@ -353,16 +353,18 @@ const ChatInterface = () => {
                 </div>
               </div>
             ))}
-            {isTyping && (
-              <div className="flex justify-start">
-                <div className="flex items-start gap-3 max-w-lg">
-                  <img src="/personna.png" alt="BH Hub" className="h-8 w-8 mt-1" />
-                  <div className="bg-card border border-border rounded-lg px-4 py-3">
-                    <div className="text-muted-foreground">Réponse en cours...</div>
-                  </div>
-                </div>
-              </div>
-            )}
+          {isTyping && (
+  <div className="flex justify-start">
+    <div className="flex items-start gap-3 max-w-lg">
+      <img src="/personna.png" alt="BH Hub" className="h-8 w-8 mt-1" />
+      <div className="bg-card border border-border rounded-lg px-4 py-3">
+        <div className="text-muted-foreground animate-pulse">
+          Réponse en cours...
+        </div>
+      </div>
+    </div>
+  </div>
+)}
           </div>
         )}
       </div>
