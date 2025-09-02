@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ReactMarkdown from "react-markdown"; 
@@ -14,17 +15,120 @@ interface Message {
 }
 
 const ChatInterface = () => {
+  const { chatId } = useParams<{ chatId: string }>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(chatId || null);
   const { user } = useUser();
+  const token = import.meta.env.VITE_CHAT_API_TOKEN;
 
   const optionCards = [
     { icon: FileText, title: "Garanties & exclusions", description: "Consultez les garanties incluses, leurs capitaux assurés et les exclusions" },
-    { icon: AlertTriangle, title: "Sinistres", description: "Suivez l’état de vos sinistres et vérifiez leur couverture" },
+    { icon: AlertTriangle, title: "Sinistres", description: "Suivez l'état de vos sinistres et vérifiez leur couverture" },
     { icon: Coins, title: "Paiements & contrats", description: "Vérifiez le statut de paiement et consultez vos contrats actifs" },
   ];
+
+  // Load chat history when chatId changes
+  useEffect(() => {
+    console.log("ChatId changed:", chatId); // Debug log
+    if (chatId) {
+      setCurrentChatId(chatId);
+      loadChatHistory(chatId);
+    } else {
+      // Clear everything for new chat
+      console.log("Clearing messages for new chat"); // Debug log
+      setMessages([]);
+      setCurrentChatId(null);
+    }
+  }, [chatId]);
+
+  // Helper function to decode Unicode escape sequences and handle newlines
+  const decodeUnicodeString = (str: string): string => {
+    try {
+      let decoded = str;
+      
+      // Remove surrounding quotes if present
+      if ((decoded.startsWith('"') && decoded.endsWith('"')) || 
+          (decoded.startsWith("'") && decoded.endsWith("'"))) {
+        decoded = decoded.slice(1, -1);
+      }
+      
+      // Replace Unicode escape sequences with actual characters
+      decoded = decoded.replace(/\\u[\dA-F]{4}/gi, (match) => {
+        return String.fromCharCode(parseInt(match.replace(/\\u/g, ''), 16));
+      });
+      
+      // Replace escaped newlines with actual newlines
+      decoded = decoded.replace(/\\n/g, '\n');
+      decoded = decoded.replace(/\\N/g, '\n');
+      
+      // Replace multiple consecutive newlines with double newlines for better spacing
+      decoded = decoded.replace(/\n{3,}/g, '\n\n');
+      
+      return decoded;
+    } catch (error) {
+      console.warn("Error decoding Unicode string:", error);
+      return str;
+    }
+  };
+
+  const loadChatHistory = async (id: string) => {
+    setIsLoadingHistory(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/history/chat/${id}/conversations`, {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        console.error(`Failed to load chat history: ${res.status} ${res.statusText}`);
+        throw new Error("Failed to load chat history");
+      }
+
+      const data = await res.json();
+      console.log("Chat history data:", data); // Debug log
+      
+      // Transform API response to match Message interface
+      // Each conversation has query and response, so we need to create 2 messages per conversation
+      const transformedMessages: Message[] = [];
+      
+      if (data.conversations && Array.isArray(data.conversations)) {
+        data.conversations.forEach((conv: any) => {
+          // Add user message (query)
+          if (conv.query) {
+            transformedMessages.push({
+              id: `user-${conv.id}`,
+              type: 'user',
+              content: decodeUnicodeString(conv.query),
+              timestamp: new Date(conv.timestamp)
+            });
+          }
+          
+          // Add assistant message (response)
+          if (conv.response) {
+            transformedMessages.push({
+              id: `assistant-${conv.id}`,
+              type: 'assistant',
+              content: decodeUnicodeString(conv.response),
+              timestamp: new Date(conv.timestamp)
+            });
+          }
+        });
+      }
+
+      setMessages(transformedMessages);
+    } catch (error) {
+      console.error("Error loading chat history:", error);
+      // Don't redirect on error, just show empty chat
+      setMessages([]);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
@@ -40,8 +144,6 @@ const ChatInterface = () => {
     setIsTyping(true);
 
     try {
-      const token = import.meta.env.VITE_CHAT_API_TOKEN;
-
       const body: any = { query: content };
       if (currentChatId) body.chat_id = currentChatId;
 
@@ -105,7 +207,13 @@ const ChatInterface = () => {
     <div className="flex-1 flex flex-col h-full">
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-6">
-        {messages.length === 0 ? (
+        {isLoadingHistory ? (
+          <div className="max-w-4xl mx-auto flex justify-center items-center h-full">
+            <div className="text-center text-muted-foreground">
+              Chargement de la conversation...
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold text-foreground mb-2">
@@ -138,7 +246,7 @@ const ChatInterface = () => {
               >
                 <div className={`flex items-start gap-3 max-w-lg ${message.type === "user" ? "flex-row-reverse" : ""}`}>
                   {message.type === "assistant" && (
-                    <img src="./personna.png" alt="BH Hub" className="h-8 w-8 mt-1" />
+                    <img src="/personna.png" alt="BH Hub" className="h-8 w-8 mt-1" />
                   )}
                   <div className={`rounded-lg px-4 py-3 ${message.type === "user" ? "bg-chat-user-bg text-foreground" : "bg-card border border-border text-foreground"}`}>
                     {message.type === "assistant" ? (
@@ -157,7 +265,7 @@ const ChatInterface = () => {
             {isTyping && (
               <div className="flex justify-start">
                 <div className="flex items-start gap-3 max-w-lg">
-                  <img src="./personna.png" alt="BH Hub" className="h-8 w-8 mt-1" />
+                  <img src="/personna.png" alt="BH Hub" className="h-8 w-8 mt-1" />
                   <div className="bg-card border border-border rounded-lg px-4 py-3">
                     <div className="text-muted-foreground">Réponse en cours...</div>
                   </div>
