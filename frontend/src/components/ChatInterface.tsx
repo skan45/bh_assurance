@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ReactMarkdown from "react-markdown"; 
 import { Card, CardContent } from "@/components/ui/card";
-import { Send, FileText, Coins, AlertTriangle } from "lucide-react";
+import { Send, FileText, Coins, AlertTriangle, ThumbsUp, ThumbsDown } from "lucide-react";
 import { useUser } from "@/context/UserContext";
 
 interface Message {
@@ -12,6 +12,7 @@ interface Message {
   type: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  feedback?: 'like' | 'dislike' | null;
 }
 
 const ChatInterface = () => {
@@ -22,7 +23,7 @@ const ChatInterface = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(chatId || null);
   const { user } = useUser();
- const token = localStorage.getItem('auth_token');
+  const token = localStorage.getItem('auth_token');
 
   const optionCards = [
     { icon: FileText, title: "Garanties & exclusions", description: "Consultez les garanties incluses, leurs capitaux assurés et les exclusions" },
@@ -104,7 +105,8 @@ const ChatInterface = () => {
               id: `user-${conv.id}`,
               type: 'user',
               content: decodeUnicodeString(conv.query),
-              timestamp: new Date(conv.timestamp)
+              timestamp: new Date(conv.timestamp),
+              feedback: null
             });
           }
           
@@ -114,7 +116,8 @@ const ChatInterface = () => {
               id: `assistant-${conv.id}`,
               type: 'assistant',
               content: decodeUnicodeString(conv.response),
-              timestamp: new Date(conv.timestamp)
+              timestamp: new Date(conv.timestamp),
+              feedback: conv.feedback || null // Load existing feedback if available
             });
           }
         });
@@ -138,6 +141,7 @@ const ChatInterface = () => {
       type: "user",
       content,
       timestamp: new Date(),
+      feedback: null,
     };
     setMessages(prev => [...prev, userMessage]);
     setInputValue("");
@@ -170,6 +174,7 @@ const ChatInterface = () => {
         type: "assistant",
         content: "",
         timestamp: new Date(),
+        feedback: null,
       };
       setMessages(prev => [...prev, assistantMessage]);
 
@@ -192,10 +197,64 @@ const ChatInterface = () => {
         type: "assistant",
         content: "Une erreur est survenue. Veuillez réessayer.",
         timestamp: new Date(),
+        feedback: null,
       };
       setMessages(prev => [...prev, assistantMessage]);
     } finally {
       setIsTyping(false);
+    }
+  };
+
+  const handleFeedback = async (messageId: string, feedbackType: 'like' | 'dislike') => {
+    // Get current feedback state for this message
+    const currentMessage = messages.find(msg => msg.id === messageId);
+    const newFeedback = currentMessage?.feedback === feedbackType ? null : feedbackType;
+
+    // Update local state immediately for better UX
+    setMessages(prev => 
+      prev.map(msg => 
+        msg.id === messageId 
+          ? { ...msg, feedback: newFeedback }
+          : msg
+      )
+    );
+
+    try {
+      // Send feedback to backend
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/feedback`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          message_id: messageId,
+          chat_id: currentChatId,
+          feedback: newFeedback, // Send null if toggling off, or the new feedback type
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("Failed to send feedback");
+        // Revert the optimistic update if the request failed
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === messageId 
+              ? { ...msg, feedback: currentMessage?.feedback || null }
+              : msg
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Error sending feedback:", error);
+      // Revert the optimistic update if the request failed
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, feedback: currentMessage?.feedback || null }
+            : msg
+        )
+      );
     }
   };
 
@@ -248,15 +307,47 @@ const ChatInterface = () => {
                   {message.type === "assistant" && (
                     <img src="/personna.png" alt="BH Hub" className="h-8 w-8 mt-1" />
                   )}
-                  <div className={`rounded-lg px-4 py-3 ${message.type === "user" ? "bg-chat-user-bg text-foreground" : "bg-card border border-border text-foreground"}`}>
-                    {message.type === "assistant" ? (
-                      <div className="prose prose-sm max-w-none">
-                      <ReactMarkdown >
-                        {message.content}
-                      </ReactMarkdown>
+                  <div className="flex flex-col">
+                    <div className={`rounded-lg px-4 py-3 ${message.type === "user" ? "bg-chat-user-bg text-foreground" : "bg-card border border-border text-foreground"}`}>
+                      {message.type === "assistant" ? (
+                        <div className="prose prose-sm max-w-none">
+                          <ReactMarkdown>
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="whitespace-pre-line">{message.content}</div>
+                      )}
+                    </div>
+                    
+                    {/* Feedback buttons for assistant messages only */}
+                    {message.type === "assistant" && message.content && (
+                      <div className="flex gap-1 mt-2 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`h-8 w-8 p-0 transition-all ${
+                            message.feedback === 'like' 
+                              ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                              : 'text-gray-500 hover:text-green-600 hover:bg-green-50'
+                          }`}
+                          onClick={() => handleFeedback(message.id, 'like')}
+                        >
+                          <ThumbsUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`h-8 w-8 p-0 transition-all ${
+                            message.feedback === 'dislike' 
+                              ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                              : 'text-gray-500 hover:text-red-600 hover:bg-red-50'
+                          }`}
+                          onClick={() => handleFeedback(message.id, 'dislike')}
+                        >
+                          <ThumbsDown className="h-4 w-4" />
+                        </Button>
                       </div>
-                    ) : (
-                      <div className="whitespace-pre-line">{message.content}</div>
                     )}
                   </div>
                 </div>
