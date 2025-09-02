@@ -1,15 +1,15 @@
-import os
-import re
-import json
 from datetime import datetime, timezone
 import numpy as np
-import faiss
+from qdrant_client import QdrantClient
+import httpx
 from fastembed import TextEmbedding
 from neo4j import GraphDatabase
 from openai import OpenAI
 from dotenv import load_dotenv
 from typing import List, Dict, Any
+import re 
 import requests
+import os 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm
@@ -21,12 +21,14 @@ load_dotenv()
 # Configuration for FAISS (Part 1: Product Comprehension)
 FAISS_INDEX_FILE = "process_PDF/embeddings.index"
 METADATA_FILE = "process_PDF/metadata.json"
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+
 
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "pdf_embeddings")
+
+# Ollama configuration
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
 # Configuration for Neo4j Agent (Part 2: Client Data Analysis)
 NEO4J_URI = os.getenv("NEO4J_URI", "")
@@ -41,26 +43,39 @@ CONVERSATION_FILE = "conversation_history.json"
 async def summarize_text(text: str) -> str:
     """
     Summarizes a user query into a short 3-5 word phrase to be used as chat name.
+    Uses Ollama's local LLaMA 2 7B model.
     """
     prompt = f"Summarize this user query into 3-5 words suitable for a chat name:\n\n{text}"
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    response = client.chat.completions.create(
-        model=OPENAI_MODEL,
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.5,
-        max_tokens=20  # Keep it short
-    )
 
-    summary = response.choices[0].message.content.strip()
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0)) as client:
+            response = await client.post(
+                f"{OLLAMA_URL}/v1/completions",
+                json={
+                    "model": "llama3.2:1b",  # Ollama model
+                    "prompt": prompt,
+                    "stream": False       # Important: get full response in one go
+                }
+            )
 
-    # Optional: fallback if empty
-    if not summary:
-        summary = "New Chat"
+        if response.status_code != 200:
+            print(f"Ollama returned status {response.status_code}: {response.text}")
+            return "New Chat"
 
-    return summary
+        data = response.json()
+        summary = data.get("response", "").strip()
 
+        # Fallback if the model gives an empty response
+        if not summary:
+            summary = "New Chat"
+
+        return summary
+    except httpx.TimeoutException:
+        print("Timeout when calling Ollama for summarization")
+        return "New Chat"
+    except Exception as e:
+        print(f"Error calling Ollama for summarization: {e}")
+        return "New Chat"
 def save_conversation_to_file():
     try:
         with open(CONVERSATION_FILE, "w", encoding="utf-8") as f:
@@ -79,8 +94,13 @@ def clean_content(raw_text: str) -> str:
     text = re.sub(r" +", " ", text)
     return text.strip()
 
-def ask_bh_assurance(query: str, embedding_model: TextEmbedding):
+async def ask_bh_assurance(query: str, embedding_model):
+    """
+    Ask BH Assurance questions using Qdrant for context and Ollama (LLaMA 2 7B) for response.
+    """
     # Connect to Qdrant
+    
+
     client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
     # Generate query embedding
@@ -125,21 +145,29 @@ Context from BH Assurance documentation:
 Respond in a chat format, making sure your answer is friendly, direct, and easy to understand.
 """
 
-    # Initialize OpenAI client
-    if not OPENAI_API_KEY:
-        return "Error: OPENAI_API_KEY not set in environment (.env)."
-    openai_client = OpenAI(api_key=OPENAI_API_KEY)
-
+    # Call Ollama API instead of OpenAI
     try:
-        response = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=1024,
-            temperature=0.7
-        )
-        answer = response.choices[0].message.content
+        async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=30.0)) as client:
+            response = await client.post(
+                f"{OLLAMA_URL}/v1/completions",
+                json={
+                    "model": "llama3.2:1b",
+                    "prompt": prompt,
+                    "stream": False,       # Get full response at once
+                }
+            )
+
+        if response.status_code != 200:
+            return f"Error generating response from Ollama: {response.text}"
+
+        answer = response.json().get("response", "").strip()
+        if not answer:
+            answer = "Sorry, I couldn't generate an answer. Please contact BH Assurance for help."
+
+    except httpx.TimeoutException:
+        return "Sorry, the request timed out. Please try again or contact BH Assurance for help."
     except Exception as e:
-        return f"Error generating response: {str(e)}"
+        return f"Error generating response from Ollama: {str(e)}"
 
     # Save conversation
     conversation_history.append((query, answer))
@@ -161,16 +189,15 @@ class Neo4jAgent:
             raise SystemExit(
                 f"Connection failed to {self.uri} as {self.user}: {e}\n"
                 "Tips: 1) Ensure Neo4j Desktop is running and the database is active. "
-                "2) Verify the URI (neo4j://127.0.0.1:7687) matches your Neo4j Desktop settings. "
-                "3) Check username (neo4j) and password (azerty2002) in Neo4j Desktop."
+                "2) Verify the URI matches your Neo4j settings. "
+                "3) Check username and password."
             )
-        self.openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
         # Memory settings
         self.memory_enabled = memory_enabled
         self.memory_path = memory_path or os.path.join(os.getcwd(), "agent_memory.json")
         self.memory_max = memory_max
         self._memory_cache: list[dict] = []
-        # Conversational ephemeral context (not persisted): track identified user & last sinistres list
         self._conversation: dict[str, Any] = {
             'person_matricule': None,
             'sinistres': []
@@ -229,96 +256,9 @@ class Neo4jAgent:
         scored.sort(key=lambda x: x[0], reverse=True)
         return [e for _, e in scored[:k]]
 
-    def _generate_cypher_query(self, natural_language_query: str) -> str:
-        kg_schema = """
-        Knowledge Graph Schema:
-
-
-    PersonneMorale
-    - `ref_personne`: Unique identifier for the moral person (integer).
-    - `raison_sociale`: Company name (string).
-    - `matricule_fiscale`: Fiscal ID (string).
-    - `lib_secteur_activite`: Sector of activity (string).
-    - `lib_activite`: Activity (string).
-    - `ville`: City (string).
-    - `lib_gouvernorat`: Governorate (string).
-    - `ville_gouvernorat`: Governorate city (string).
-
-    PersonnePhysique
-    - `ref_personne`: Unique identifier for the physical person (integer).
-    - `nom_prenom`: Full name (string).
-    - `date_naissance`: Date of birth (date string YYYY-MM-DD).
-    - `lieu_naissance`: Place of birth (string).
-    - `code_sexe`: Gender code (string).
-    - `situation_familiale`: Marital status (string).
-    - `num_piece_identite`: ID number (integer).
-    - `lib_secteur_activite`: Sector of activity (string).
-    - `lib_profession`: Profession (string).
-    - `ville`: City (string).
-    - `lib_gouvernorat`: Governorate (string).
-    - `ville_gouvernorat`: Governorate city (string).
-
-    Contrat
-    - `num_contrat`: Contract number (integer).
-    - `lib_produit`: Product name (string).
-    - `effet_contrat`: Contract effective date (date string YYYY-MM-DD).
-    - `date_expiration`: Contract expiration date (date string YYYY-MM-DD).
-    - `prochain_terme`: Next term (string).
-    - `lib_etat_contrat`: Contract status (string).
-    - `branche`: Branch (string).
-    - `somme_quittances`: Sum of receipts (float, TND).
-    - `statut_paiement`: Payment status (string).
-    - `capital_assure`: Insured capital (float, TND).
-
-    Sinistre
-    - `num_sinistre`: Claim number (integer).
-    - `lib_branche`: Branch (string).
-    - `lib_sous_branche`: Sub-branch (string).
-    - `lib_produit`: Product name (string).
-    - `nature_sinistre`: Nature of claim (string).
-    - `lib_type_sinistre`: Type of claim (string).
-    - `taux_responsabilite`: Responsibility rate (float).
-    - `date_survenance`: Date of occurrence (date string YYYY-MM-DD).
-    - `date_declaration`: Date of declaration (date string YYYY-MM-DD).
-    - `date_ouverture`: Date of opening (date string YYYY-MM-DD).
-    - `observation_sinistre`: Claim observation (string).
-    - `lib_etat_sinistre`: Claim status (string).
-    - `lieu_accident`: Accident location (string).
-    - `motif_reouverture`: Reopening reason (string).
-    - `montant_encaisse`: Amount collected (float).
-    - `montant_a_encaisser`: Amount to be collected (float).
-
-    Branche
-    - `lib_branche`: Branch name (string).
-
-    SousBranche
-    - `lib_sous_branche`: Sub-branch name (string).
-
-    Produit
-    - `lib_produit`: Product name (string).
-
-    Garantie
-    - `code_garantie`: Unique code for the guarantee (integer).
-    - `lib_garantie`: Guarantee name (string).
-    - `description`: Description of the guarantee (string).
-
-    ProfilCible
-    - `lib_profil`: Target profile description (string, e.g., "Emprunteurs" or "chefs de famille").
-
-    Relationships:
-
-    - `[:A_SOUSCRIT]`: Connects `PersonneMorale` or `PersonnePhysique` nodes to `Contrat` nodes, indicating that a person has subscribed to a contract.
-    - `[:CONCERNE]`: Connects `Sinistre` nodes to `Contrat` nodes, indicating that a claim concerns a specific contract.
-    - `[:EST_UNE_SOUS_BRANCHE_DE]`: Connects `SousBranche` nodes to `Branche` nodes, indicating a hierarchical relationship where a sub-branch belongs to a branch.
-    - `[:EST_UN_PRODUIT_DE]`: Connects `Produit` nodes to `SousBranche` nodes, indicating that a product belongs to a sub-branch.
-    - `[:PORTE_SUR]`: Connects `Contrat` nodes to `Produit` nodes, indicating that a contract is for a specific product.
-    - `[:DE_BRANCHE]`: Connects `Contrat` or `Sinistre` nodes to `Branche` nodes, indicating the branch of the contract or claim.
-    - `[:DE_SOUS_BRANCHE]`: Connects `Sinistre` nodes to `SousBranche` nodes, indicating the sub-branch of the claim.
-    - `[:OFFRE]`: Connects `Produit` nodes to `Garantie` nodes, indicating that a product offers a specific guarantee.
-    - `[:INCLUT]`: Connects `Contrat` nodes to `Garantie` nodes, indicating that a contract includes a specific guarantee. Properties: `capital_assure` (float, TND) - The insured capital amount for this guarantee in the contract.
-    - `[:DESTINE_A]`: Connects `Produit` nodes to `ProfilCible` nodes, indicating the target profiles for a product (a product can connect to multiple profiles based on semi-colon separated values in the data).
-    """
-
+    # ---------------- Cypher generation -----------------
+    async def _generate_cypher_query(self, natural_language_query: str) -> str:
+        kg_schema = """Knowledge Graph Schema: PersonneMorale - ref_personne: Unique identifier for the moral person (integer). - raison_sociale: Company name (string). - matricule_fiscale: Fiscal ID (string). - lib_secteur_activite: Sector of activity (string). - lib_activite: Activity (string). - ville: City (string). - lib_gouvernorat: Governorate (string). - ville_gouvernorat: Governorate city (string). PersonnePhysique - ref_personne: Unique identifier for the physical person (integer). - nom_prenom: Full name (string). - date_naissance: Date of birth (date string YYYY-MM-DD). - lieu_naissance: Place of birth (string). - code_sexe: Gender code (string). - situation_familiale: Marital status (string). - num_piece_identite: ID number (integer). - lib_secteur_activite: Sector of activity (string). - lib_profession: Profession (string). - ville: City (string). - lib_gouvernorat: Governorate (string). - ville_gouvernorat: Governorate city (string). Contrat - num_contrat: Contract number (integer). - lib_produit: Product name (string). - effet_contrat: Contract effective date (date string YYYY-MM-DD). - date_expiration: Contract expiration date (date string YYYY-MM-DD). - prochain_terme: Next term (string). - lib_etat_contrat: Contract status (string). - branche: Branch (string). - somme_quittances: Sum of receipts (float, TND). - statut_paiement: Payment status (string). - capital_assure: Insured capital (float, TND). Sinistre - num_sinistre: Claim number (integer). - lib_branche: Branch (string). - lib_sous_branche: Sub-branch (string). - lib_produit: Product name (string). - nature_sinistre: Nature of claim (string). - lib_type_sinistre: Type of claim (string). - taux_responsabilite: Responsibility rate (float). - date_survenance: Date of occurrence (date string YYYY-MM-DD). - date_declaration: Date of declaration (date string YYYY-MM-DD). - date_ouverture: Date of opening (date string YYYY-MM-DD). - observation_sinistre: Claim observation (string). - lib_etat_sinistre: Claim status (string). - lieu_accident: Accident location (string). - motif_reouverture: Reopening reason (string). - montant_encaisse: Amount collected (float). - montant_a_encaisser: Amount to be collected (float). Branche - lib_branche: Branch name (string). SousBranche - lib_sous_branche: Sub-branch name (string). Produit - lib_produit: Product name (string). Garantie - code_garantie: Unique code for the guarantee (integer). - lib_garantie: Guarantee name (string). - description: Description of the guarantee (string). ProfilCible - lib_profil: Target profile description (string, e.g., "Emprunteurs" or "chefs de famille"). Relationships: - [:A_SOUSCRIT], [:CONCERNE], [:EST_UNE_SOUS_BRANCHE_DE], [:EST_UN_PRODUIT_DE], [:PORTE_SUR], [:DE_BRANCHE], [:DE_SOUS_BRANCHE], [:OFFRE], [:INCLUT], [:DESTINE_A] """ # Memory context memory_context = "" if self.memory_enabled: rel_mem = self._relevant_memory(natural_language_query, k=3) if rel_mem: mem_lines = [] for m in rel_mem: mem_lines.append(f"- Q: {m['query']} => Cypher: {m['cypher'][:220]}... (résultats: {m['result_count']})") memory_context = "Historique pertinent récent:\n" + "\n".join(mem_lines) + "\n\n" # Conversation context conversation_context = "" if self._conversation.get('person_matricule'): conversation_context += f"L'utilisateur s'est précédemment identifié comme client avec matricule_fiscale = {self._conversation['person_matricule']}.\n" if self._conversation.get('sinistres'): nums = ', '.join(str(n) for n in self._conversation['sinistres'][:15]) conversation_context += f"Les derniers sinistres référencés dans la conversation ont les num_sinistre: {nums}.\n" if conversation_context: conversation_context = "Contexte conversationnel:\n" + conversation_context + "\n" # Prompt for Ollama prompt = f"""Given the following Knowledge Graph schema, translate the natural language query into a Cypher query. {kg_schema} {conversation_context}{memory_context} Natural Language Query: {natural_language_query} Return only the Cypher query. Do not include extra text or explanations."""  # Keep your full KG schema here
 
         memory_context = ""
         if self.memory_enabled:
@@ -342,157 +282,136 @@ class Neo4jAgent:
 
 {kg_schema}
 
-{conversation_context}Si la question utilisateur fait référence à un client, TOUJOURS utiliser le motif multi-label (p:PersonneMorale|PersonnePhysique) pour le client, et filtrer sur la propriété appropriée :
-- Si la question ou le contexte contient "matricule fiscale", filtrer sur p.matricule_fiscale.
-- Sinon, filtrer sur p.ref_personne.
-N'utilise jamais uniquement PersonneMorale ou PersonnePhysique seul.
-Si la question contient des pronoms ou références comme "mes sinistres", "leur numéro", "ceux-ci" ou "les précédents", utilise le contexte conversationnel ci-dessus pour résoudre à quelles entités (personne ou sinistres) cela fait référence. Si le contexte n'existe pas, ne devine pas : reformule la requête pour chercher explicitement. N'invente jamais de numéros.
+{conversation_context}{memory_context}
 
 Natural Language Query: {natural_language_query}
 
-Cypher Query:
-
-    Règles importantes de génération (NE PAS VIOLER):
-1. Toujours utiliser MATCH (ou OPTIONAL MATCH) pour chaque motif avant de le RETURN; NE JAMAIS retourner directement un motif comme (c)-[:REL]->(g).
-2. Dans RETURN, ne mettre que des variables (ex: c, g, r.capital_assure) pas des motifs entiers.
-3. Pour tester l'existence d'un motif, utiliser EXISTS {{ MATCH ... }} ou une clause MATCH séparée + WHERE, jamais RETURN (a)-[:R]->(b).
-4. Utiliser DISTINCT quand la question parle de "quels / quelles" ensembles uniques.
-5. Préfixer les agrégations (COUNT, SUM) uniquement si demandé.
-6. Limiter le nombre de lignes avec LIMIT 100 si aucune limite implicite.
-7. Toujours respecter les labels existants du schéma.
-8. Ne pas inventer de propriétés.
-9. Les mots "client", "assuré", "souscripteur" désignent indistinctement une personne morale OU physique : modéliser avec un motif multi-label (p:PersonneMorale|PersonnePhysique). Conserver les propriétés (ex: ref_personne, matricule_fiscale) dans le même map.
-10. Si le rôle (client / assuré) n'est pas précisé mais on cherche des contrats, utiliser (p:PersonneMorale|PersonnePhysique)-[:A_SOUSCRIT]->(c:Contrat).
-11. Ne retourne jamais directement le nom d'un type de relation (ex: INCLUT, CONCERNE) sans alias; si besoin d'une relation, aliaser (p)-[r:INCLUT]->(g) et RETURN r, pas INCLUT.
+Return only the Cypher query. Do not include extra text or explanations.
 """
-        
-        response = self.openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that translates natural language to Cypher queries based on the provided schema. Only return the Cypher query, no additional text."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=500
-        )
-        cypher_query = response.choices[0].message.content.strip()
+
+        async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=30.0)) as client:
+            try:
+                response = await client.post(
+                    f"{OLLAMA_URL}/v1/completions",
+                    json={
+                        "model": "llama3.2:1b",
+                        "prompt": prompt,
+                        "max_tokens": 500,
+                        "temperature": 0,
+                        "stream":False
+                    }
+                )
+                data = response.json()
+                cypher_query = data.get("response", "")
+            except Exception as e:
+                print(f"Ollama request failed: {e}")
+                cypher_query = ""
+
         if cypher_query.startswith("```cypher") and cypher_query.endswith("```"):
             cypher_query = cypher_query[len("```cypher\n"): -len("```")].strip()
+
         return self._sanitize_cypher(cypher_query)
 
+    # ---------------- Sanitize -----------------
     def _sanitize_cypher(self, query: str) -> str:
         query = query.strip().rstrip(';').strip()
-        declared_vars = set(re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\s*:', query))
-        declared_vars.update(re.findall(r'\[\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:', query))
-
-        def _fix_return(line: str) -> str:
-            parts = [p.strip() for p in line.split(',')]
-            cleaned = []
-            for p in parts:
-                if '-[' in p or ')-' in p:
-                    vars_found = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\b', p)
-                    keywords = {'MATCH','WITH','WHERE','RETURN','DISTINCT','OPTIONAL','CALL','ORDER','BY','LIMIT','SKIP','AS','AND','OR','NOT','EXISTS'}
-                    vars_kept = [v for v in vars_found if v.upper() not in keywords]
-                    if vars_kept:
-                        cleaned.extend(vars_kept)
-                else:
-                    cleaned.append(p)
-            seen = set(); dedup = []
-            for c in cleaned:
-                if c.isupper() and c not in declared_vars:
-                    continue
-                if re.fullmatch(r'[a-zA-Z_][a-zA-Z0-9_]*', c) and c not in declared_vars:
-                    continue
-                if c not in seen:
-                    seen.add(c); dedup.append(c)
-            return ', '.join(dedup) if dedup else line
         lines = query.split('\n')
         for i, l in enumerate(lines):
             if re.match(r'\s*RETURN\b', l, re.IGNORECASE):
-                prefix, rest = l.split('RETURN', 1)
-                fixed = _fix_return(rest)
-                lines[i] = f"{prefix}RETURN {fixed}".rstrip()
+                parts = [p.strip() for p in l.split('RETURN', 1)[1].split(',')]
+                cleaned = [p for p in parts if re.fullmatch(r'[a-zA-Z_][a-zA-Z0-9_]*', p)]
+                lines[i] = f"RETURN {', '.join(cleaned)}"
         query = '\n'.join(lines)
         if re.search(r'\bRETURN\b', query, re.IGNORECASE) and not re.search(r'\bLIMIT\b', query, re.IGNORECASE):
             query += "\nLIMIT 100"
         return query
 
-    def _refine_query_on_error(self, nl_query: str, bad_cypher: str, error_text: str) -> str:
-        repair_prompt = f"""La requête Cypher générée a provoqué une erreur Neo4j.
-Question naturelle: {nl_query}
+    # ---------------- Refine query on error -----------------
+    async def _refine_query_on_error(self, nl_query: str, bad_cypher: str, error_text: str) -> str:
+        repair_prompt = f"""La requête Cypher a provoqué une erreur Neo4j.
+Question: {nl_query}
 Requête Cypher initiale:
 {bad_cypher}
 Message d'erreur:
 {error_text}
 
-Produis une version corrigée qui respecte les règles:
-- Ne retourne que des variables dans RETURN.
-- Utilise MATCH / OPTIONAL MATCH appropriés.
-- Utilise EXISTS {{ MATCH ... }} si tu testes la simple existence.
-- N'invente aucun label ou propriété hors schéma.
-- Ajoute LIMIT 100 si pas de limite.
-Seulement la requête Cypher, rien d'autre."""
-        response = self.openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "Tu répares des requêtes Cypher invalides. Tu renvoies uniquement la requête corrigée."},
-                {"role": "user", "content": repair_prompt}
-            ],
-            max_tokens=400
-        )
-        fixed = response.choices[0].message.content.strip()
+Corrige la requête en respectant les règles:
+- RETURN uniquement des variables.
+- MATCH / OPTIONAL MATCH appropriés.
+- EXISTS {{ MATCH ... }} pour tester l'existence.
+- Aucun label ou propriété inventé.
+- Ajoute LIMIT 100 si absent.
+Renvoie seulement la requête Cypher corrigée.
+"""
+        async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=30.0)) as client:
+            try:
+                response = await client.post(
+                    f"{OLLAMA_URL}/v1/completions",
+                    json={
+                        "model": "llama3.2:1b",
+                        "prompt": repair_prompt,
+                        "max_tokens": 400,
+                        "temperature": 0,
+                        "stream": False
+                    }
+                )
+                data = response.json()
+                fixed = data.get("response", "")
+            except Exception as e:
+                print(f"Ollama request failed: {e}")
+                fixed = bad_cypher
         if fixed.startswith("```cypher") and fixed.endswith("```"):
             fixed = fixed[len("```cypher\n"): -len("```")].strip()
         return self._sanitize_cypher(fixed)
 
-    def format_results(self, natural_language_query: str, results: List[Dict[str, Any]]) -> str:
+    # ---------------- Format results -----------------
+    async def format_results(self, natural_language_query: str, results: List[Dict[str, Any]]) -> str:
         if not results:
-            neg_prompt = (
-                "La requête utilisateur suivante n'a retourné aucun résultat dans la base Neo4j.\n"
-                f"Requête utilisateur: {natural_language_query}\n\n"
-                "Consignes:\n"
-                "1. Réponds en français.\n"
-                "2. La réponse doit commencer par \"Non\".\n"
-                "3. Reformule brièvement la question pour contextualiser.\n"
-                "4. Indique que les données correspondantes ne sont pas trouvées / n'existent pas.\n"
-                "5. Suggère (facultatif) une piste de reformulation en une phrase.\n"
-                "6. Ne pas inventer de chiffres ou d'objets inexistants.\n\n"
-                "Réponse:" 
-            )
-            try:
-                response = self.openai_client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[
-                        {"role": "system", "content": "Tu rédiges des réponses négatives concises et utiles en français. Commence toujours par 'Non'."},
-                        {"role": "user", "content": neg_prompt}
-                    ],
-                    max_tokens=120
-                )
-                txt = response.choices[0].message.content.strip()
-                if not txt.lower().startswith("non"):
-                    txt = "Non, aucun résultat correspondant n'a été trouvé." if not txt else f"Non. {txt}"
-                return txt
-            except Exception:
-                return "Non, aucun résultat correspondant n'a été trouvé."
+            neg_prompt = f"""La requête utilisateur n'a retourné aucun résultat dans Neo4j.
+Question: {natural_language_query}
+Réponds en français, commence par "Non", explique brièvement et suggère une reformulation possible.
+"""
+            async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=30.0)) as client:
+                try:
+                    response = await client.post(
+                        f"{OLLAMA_URL}/v1/completions",
+                        json={
+                            "model": "llama3.2:1b",
+                            "prompt": neg_prompt,
+                            "max_tokens": 120,
+                            "temperature": 0,
+                            "stream": False
+                        }
+                    )
+                    data = response.json()
+                    txt = data.get("response", "")
+                    if not txt.lower().startswith("non"):
+                        txt = "Non, aucun résultat correspondant n'a été trouvé." if not txt else f"Non. {txt}"
+                    return txt
+                except Exception:
+                    return "Non, aucun résultat correspondant n'a été trouvé."
 
         results_json = json.dumps(results, indent=2, ensure_ascii=False)
-        prompt = (
-            "You are a helpful assistant that formats query results into a clear, concise, and natural language "
-            "response in French, tailored to the original question. Use the provided query and results to generate "
-            "a well-written phrase or paragraph that directly answers the question. Avoid technical jargon and focus "
-            "on a user-friendly response. If the results are empty, indicate that no data was found.\n\n"
-            f"Original Query: {natural_language_query}\n"
-            f"Query Results: {results_json}\n\n"
-            "Formatted Response (in French):"
-        )
-        response = self.openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that generates clear and concise responses in French based on query results."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=1000
-        )
-        formatted_response = response.choices[0].message.content.strip()
+        prompt = f"""Formate les résultats suivants en réponse claire en français, adaptée à la question:
+Question: {natural_language_query}
+Résultats: {results_json}
+Réponse formatée:"""
+        async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=30.0)) as client:
+            try:
+                response = await client.post(
+                    f"{OLLAMA_URL}/v1/completions",
+                    json={
+                        "model": "llama3.2:1b",
+                        "prompt": prompt,
+                        "max_tokens": 1000,
+                        "temperature": 0,
+                        "stream": False
+                    }
+                )
+                data = response.json()
+                formatted_response = data.get("response", "")
+            except Exception:
+                formatted_response = "Voici les résultats trouvés."
         formatted_response = re.sub(r"€\s*", " TND ", formatted_response)
         formatted_response = re.sub(r"\b(euros?|EUROS?)\b", "TND", formatted_response, flags=re.IGNORECASE)
         return formatted_response
@@ -557,8 +476,7 @@ Seulement la requête Cypher, rien d'autre."""
             self._conversation['sinistres'] = list(sorted(sin_numbers))[-50:]
 
 # Classification function to determine query type
-def classify_query(query: str) -> str:
-    openai_client = OpenAI(api_key=OPENAI_API_KEY)
+async def classify_query(query: str) -> str:
     prompt = f"""
 Classify the following query into one of two categories:
 - "product": If the query is about general understanding of insurance products, guarantees, differences between formulas, or general contract details without referencing specific clients, sinistres, or payments.
@@ -568,19 +486,23 @@ Query: {query}
 
 Return only the category name: "product" or "client".
 """
-    try:
-        response = openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=10,
-            temperature=0.0
-        )
-        category = response.choices[0].message.content.strip().lower()
-        if category not in ["product", "client"]:
-            category = "product"
-        return category
-    except Exception:
-        return "product"
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0)) as client:
+        try:
+            resp = await client.post(
+                f"{OLLAMA_URL}/v1/completions",
+                json={"model": "llama3.2:1b", "prompt": prompt, "stream": False}
+            )
+            resp.raise_for_status()
+            result = resp.json()
+            # Ollama may return text in 'response' field
+            category = result.get("response", "").strip().lower()
+            if category not in ["product", "client"]:
+                category = "product"
+            return category
+        except Exception as e:
+            print("Error calling Ollama:", e)
+            return "product"
 
 
 
