@@ -4,6 +4,9 @@ from databases import Database
 from pydantic import BaseModel
 
 router = APIRouter()
+class ContactMessage(BaseModel):
+    sujet: str = None  # Optional subject
+    message: str 
 
 
 class ContactMessage(BaseModel):
