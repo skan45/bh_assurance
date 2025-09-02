@@ -1,139 +1,189 @@
-# devis.py
-import io
-import requests
-from datetime import datetime
-from fastapi import APIRouter, HTTPException , Depends
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import Optional
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-from reportlab.lib.units import cm
-from middleware.jwt_verifier import verify_jwt 
+import React, { useState } from 'react';
+import { X } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
 
-router = APIRouter()
+export default function QuoteModal({ isOpen, onClose }) {
+  const [formData, setFormData] = useState({
+    n_cin: '',
+    valeur_venale: '',
+    nature_contrat: '',
+    nombre_place: '',
+    valeur_a_neuf: '',
+    date_premiere_mise_en_circulation: '',
+    capital_bris_de_glace: '',
+    capital_dommage_collision: '',
+    puissance: '',
+    classe: ''
+  });
 
-# ---- Request Model ----
-class DevisRequest(BaseModel):
-    n_cin: str
-    valeur_venale: float
-    nature_contrat: str
-    nombre_place: int
-    valeur_a_neuf: float
-    date_premiere_mise_en_circulation: str
-    capital_bris_de_glace: float
-    capital_dommage_collision: float
-    puissance: int
-    classe: int
+  const [loading, setLoading] = useState(false);
 
-# ---- Devis Handler ----
-async def handle_devis_request(params: dict):
-    required_params = [
-        "n_cin",
-        "valeur_venale",
-        "nature_contrat",
-        "nombre_place",
-        "valeur_a_neuf",
-        "date_premiere_mise_en_circulation",
-        "capital_bris_de_glace",
-        "capital_dommage_collision",
-        "puissance",
-        "classe"
-    ]
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
-    missing = [p for p in required_params if p not in params or not params[p]]
-    if missing:
-        return {"error": f"Missing required parameters: {', '.join(missing)}"}
+  const validateForm = () => {
+    const requiredFields = [
+      'n_cin',
+      'valeur_venale',
+      'nature_contrat',
+      'nombre_place',
+      'valeur_a_neuf',
+      'date_premiere_mise_en_circulation',
+      'capital_bris_de_glace',
+      'capital_dommage_collision',
+      'puissance',
+      'classe'
+    ];
+    for (let field of requiredFields) {
+      if (formData[field] === '' || formData[field] === null) {
+        toast.error(`Le champ "${field}" est requis`);
+        return false;
+      }
+    }
+    return true;
+  };
 
-    url = "https://apidevis.onrender.com/api/auto/packs"
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        devis_data = response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"Error fetching devis data from API: {str(e)}"}
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
 
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
-    styles = getSampleStyleSheet()
+    setLoading(true);
 
-    title_style = ParagraphStyle(name='TitleStyle', fontSize=16, leading=20, alignment=1, spaceAfter=12)
-    section_style = ParagraphStyle(name='SectionStyle', fontSize=12, leading=14, spaceAfter=8)
-    normal_style = styles['Normal']
-    normal_style.fontSize = 10
+    const natureContratMap = {
+      "tiers_simple": "r",
+      "tiers_complet": "tc",
+      "tous_risques": "tr",
+      "vol_incendie": "vi"
+    };
 
-    story = []
-    story.append(Paragraph("Devis d'Assurance Automobile", title_style))
-    story.append(Spacer(1, 0.5*cm))
+    const submissionData = {
+      n_cin: formData.n_cin,
+      valeur_venale: parseFloat(formData.valeur_venale),
+      nature_contrat: natureContratMap[formData.nature_contrat] || formData.nature_contrat,
+      nombre_place: parseInt(formData.nombre_place),
+      valeur_a_neuf: parseFloat(formData.valeur_a_neuf),
+      date_premiere_mise_en_circulation: formData.date_premiere_mise_en_circulation,
+      capital_bris_de_glace: parseFloat(formData.capital_bris_de_glace),
+      capital_dommage_collision: parseFloat(formData.capital_dommage_collision),
+      puissance: parseInt(formData.puissance),
+      classe: parseInt(formData.classe)
+    };
 
-    # Params
-    story.append(Paragraph("<b>Paramètres du devis saisis :</b>", section_style))
-    params_table_data = [["Champ", "Valeur"]]
-    for k, v in params.items():
-        params_table_data.append([k, str(v)])
-    params_table = Table(params_table_data)
-    params_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-    ]))
-    story.append(params_table)
-    story.append(Spacer(1, 0.5*cm))
+    try {
+      const token = import.meta.env.VITE_CHAT_API_TOKEN;
 
-    # Provider
-    header = devis_data.get('header', {})
-    provider_info = f"<b>Fournisseur :</b> {header.get('providerDescription', 'N/A')} (Code: {header.get('providerCode', 'N/A')})"
-    story.append(Paragraph(provider_info, section_style))
-    story.append(Spacer(1, 0.5*cm))
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/devis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(submissionData),
+      });
 
-    # Packs
-    for pack in devis_data['body']['result']:
-        pack_code = pack.get('codeProduit', 'N/A')
-        is_applicable = pack.get('packApplicable', False)
-        pack_title = f"Pack {pack_code} - {'Disponible' if is_applicable else 'Non Disponible'}"
-        story.append(Paragraph(pack_title, section_style))
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Erreur lors de la génération du devis');
+      }
 
-        total_prime = f"{float(pack.get('montantTotalPrime', 0)):.3f} TND" if pack.get('montantTotalPrime', 0) else "-"
-        monthly_prime = f"{float(pack.get('montantPrimeDivisePar12', 0)):.3f} TND" if pack.get('montantPrimeDivisePar12', 0) else "-"
-        story.append(Paragraph(f"<b>Prime Totale :</b> {total_prime}", normal_style))
-        story.append(Paragraph(f"<b>Prime Mensuelle :</b> {monthly_prime}", normal_style))
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'devis.pdf');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
 
-        guarantees = pack.get('garantieCourtierModels', [])
-        table_data = [["Garantie", "Capital", "Franchise", "Code Garantie"]]
-        for guarantee in guarantees:
-            table_data.append([
-                guarantee.get('libGarantie', 'N/A'),
-                f"{float(guarantee.get('capital', 0)):.3f} TND" if guarantee.get('capital', 0) else "-",
-                guarantee.get('codeFranchise', '-') or "-",
-                guarantee.get('codeGarantie', 'N/A')
-            ])
-        table = Table(table_data)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ]))
-        story.append(table)
-        story.append(Spacer(1, 0.5*cm))
+      toast.success('Devis généré avec succès !');
+      setFormData({
+        n_cin: '',
+        valeur_venale: '',
+        nature_contrat: '',
+        nombre_place: '',
+        valeur_a_neuf: '',
+        date_premiere_mise_en_circulation: '',
+        capital_bris_de_glace: '',
+        capital_dommage_collision: '',
+        puissance: '',
+        classe: ''
+      });
+      onClose();
 
-    doc.build(story)
-    buffer.seek(0)
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return buffer
+  if (!isOpen) return null;
 
-# ---- Route ----
-@router.post("/devis")
-async def generate_devis(request: DevisRequest, payload: dict = Depends(verify_jwt)):
-    params = request.dict()
-    pdf_buffer = await handle_devis_request(params)
+  return (
+    <>
+      <Toaster position="top-right" />
+      <div className="fixed inset-0 z-50">
+        <div 
+          className="absolute inset-0 bg-black bg-opacity-50 transition-opacity duration-300"
+          onClick={onClose}
+        />
 
-    if isinstance(pdf_buffer, dict) and "error" in pdf_buffer:
-        raise HTTPException(status_code=400, detail=pdf_buffer["error"])
+        <div className={`absolute top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl transform transition-transform duration-300 ease-out ${
+          isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}>
+          <div className="flex items-center justify-between p-6 border-b border-gray-100">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Demander un devis</h2>
+              <p className="text-sm text-gray-500 mt-1">Remplissez le formulaire suivant pour demander un devis</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-full transition"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
 
-    return StreamingResponse(
-        pdf_buffer,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=devis.pdf"}
-    )
+          <div className="p-6 overflow-y-auto h-[calc(100vh-200px)]">
+            <div className="space-y-6">
+              {/* Form fields same as before */}
+              {/* Example for n_cin */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Numéro CIN</label>
+                <input
+                  type="text"
+                  value={formData.n_cin}
+                  onChange={(e) => handleInputChange('n_cin', e.target.value)}
+                  placeholder="Votre numéro CIN"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                />
+              </div>
+              {/* Repeat for other inputs similarly, making sure numeric fields use type="number" */}
+            </div>
+          </div>
 
+          <div className="absolute bottom-0 left-0 right-0 p-6 bg-white border-t border-gray-100">
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
+              >
+                Retour au chat
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className={`flex-1 px-4 py-3 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {loading ? 'Génération en cours...' : 'Demander un devis'}
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </>
+  );
+}

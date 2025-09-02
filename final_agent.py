@@ -24,6 +24,10 @@ METADATA_FILE = "process_PDF/metadata.json"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 
+QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
+QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "pdf_embeddings")
+
 # Configuration for Neo4j Agent (Part 2: Client Data Analysis)
 NEO4J_URI = os.getenv("NEO4J_URI", "")
 NEO4J_USER = os.getenv("NEO4J_USER", "")
@@ -75,38 +79,30 @@ def clean_content(raw_text: str) -> str:
     text = re.sub(r" +", " ", text)
     return text.strip()
 
-# Query FAISS and generate response with OpenAI, using conversation memory
-def ask_bh_assurance(query: str, embedding_model: TextEmbedding, faiss_index_file: str = FAISS_INDEX_FILE, metadata_file: str = METADATA_FILE):
+def ask_bh_assurance(query: str, embedding_model: TextEmbedding):
+    # Connect to Qdrant
+    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+
     # Generate query embedding
     query_embedding = list(embedding_model.embed([query]))[0]
-    query_embedding = np.array([query_embedding], dtype=np.float32)
-    faiss.normalize_L2(query_embedding)
-    
-    # Load FAISS index
-    try:
-        index = faiss.read_index(faiss_index_file)
-    except Exception as e:
-        print(f"Error loading FAISS index: {str(e)}")
-        return "Error: Could not load FAISS index. Ensure embeddings.index exists."
-    
-    # Load metadata
-    try:
-        with open(metadata_file, 'r', encoding='utf-8') as f:
-            metadata = json.load(f)
-    except Exception as e:
-        print(f"Error loading metadata: {str(e)}")
-        return "Error: Could not load metadata. Ensure metadata.json exists."
-    
+
     # Perform similarity search
-    limit = 5
-    distances, indices = index.search(query_embedding, limit)
+    try:
+        hits = client.search(
+            collection_name=QDRANT_COLLECTION,
+            query_vector=query_embedding,
+            limit=5
+        )
+    except Exception as e:
+        return f"Error querying Qdrant: {str(e)}"
+
+    # Build context from top hits
     context = ""
-    for i, idx in enumerate(indices[0]):
-        if idx < len(metadata):
-            payload = metadata[idx]
-            content = payload.get('content', '')
-            cleaned_content = clean_content(content)
-            context += cleaned_content + "\n\n"
+    for hit in hits:
+        payload = hit.payload
+        content = payload.get("content", "")
+        cleaned_content = clean_content(content)
+        context += cleaned_content + "\n\n"
 
     # Build conversation history for prompt
     history_text = ""
@@ -126,10 +122,12 @@ Context from BH Assurance documentation:
 
 Respond in a chat format, making sure your answer is friendly, direct, and easy to understand.
 """
+
     # Initialize OpenAI client
     if not OPENAI_API_KEY:
         return "Error: OPENAI_API_KEY not set in environment (.env)."
     openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
     try:
         response = openai_client.chat.completions.create(
             model=OPENAI_MODEL,
@@ -140,9 +138,11 @@ Respond in a chat format, making sure your answer is friendly, direct, and easy 
         answer = response.choices[0].message.content
     except Exception as e:
         return f"Error generating response: {str(e)}"
-    # Store the query and answer in memory
+
+    # Save conversation
     conversation_history.append((query, answer))
     save_conversation_to_file()
+
     return answer
 
 # Neo4j Agent Class (Part 2: Client Data Analysis)
