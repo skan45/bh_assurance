@@ -27,7 +27,7 @@ export default function QuoteModal({ isOpen, onClose }) {
     setLoading(true); // start loading
 
     const apiUrl = import.meta.env.VITE_API_URL; 
-    const token = import.meta.env.VITE_CHAT_API_TOKEN;
+    const token = localStorage.getItem('auth_token');
 
     const response = await fetch(`${apiUrl}/devis`, {
       method: 'POST',

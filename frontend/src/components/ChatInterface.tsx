@@ -22,7 +22,7 @@ const ChatInterface = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(chatId || null);
   const { user } = useUser();
-  const token = import.meta.env.VITE_CHAT_API_TOKEN;
+ const token = localStorage.getItem('auth_token');
 
   const optionCards = [
     { icon: FileText, title: "Garanties & exclusions", description: "Consultez les garanties incluses, leurs capitaux assurés et les exclusions" },

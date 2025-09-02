@@ -10,7 +10,7 @@ const Sidebar = () => {
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
-  const token = import.meta.env.VITE_CHAT_API_TOKEN;
+  const token = localStorage.getItem('auth_token');
 
   // Get current chat ID from URL
   const currentChatId = location.pathname === '/' ? null : 
