@@ -14,29 +14,48 @@ export default function QuoteModal({ isOpen, onClose }) {
     puissance: '',
     classe: ''
   });
+  const [loading, setLoading] = useState(false);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = () => {
-    // Convert string values to appropriate types before submission
-    const submissionData = {
-      n_cin: formData.n_cin,
-      valeur_venale: parseFloat(formData.valeur_venale) || 0,
-      nature_contrat: formData.nature_contrat,
-      nombre_place: parseInt(formData.nombre_place) || 0,
-      valeur_a_neuf: parseFloat(formData.valeur_a_neuf) || 0,
-      date_premiere_mise_en_circulation: formData.date_premiere_mise_en_circulation,
-      capital_bris_de_glace: parseFloat(formData.capital_bris_de_glace) || 0,
-      capital_dommage_collision: parseFloat(formData.capital_dommage_collision) || 0,
-      puissance: parseInt(formData.puissance) || 0,
-      classe: parseInt(formData.classe) || 0
-    };
-    
-    console.log('Form submitted:', submissionData);
+  const handleSubmit = async () => {
+  const submissionData = { n_cin: formData.n_cin, valeur_venale: parseFloat(formData.valeur_venale) || 0, nature_contrat: formData.nature_contrat, nombre_place: parseInt(formData.nombre_place) || 0, valeur_a_neuf: parseFloat(formData.valeur_a_neuf) || 0, date_premiere_mise_en_circulation: formData.date_premiere_mise_en_circulation, capital_bris_de_glace: parseFloat(formData.capital_bris_de_glace) || 0, capital_dommage_collision: parseFloat(formData.capital_dommage_collision) || 0, puissance: parseInt(formData.puissance) || 0, classe: parseInt(formData.classe) || 0 };
+
+  try {
+    setLoading(true); // start loading
+
+    const apiUrl = import.meta.env.VITE_API_URL; 
+    const token = import.meta.env.VITE_CHAT_API_TOKEN;
+
+    const response = await fetch(`${apiUrl}/devis`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(submissionData)
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('Devis API error:', text);
+      alert('Erreur lors de la récupération du devis. Vérifiez la console.');
+      return;
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'devis.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+
     onClose();
-    // Reset form
     setFormData({
       n_cin: '',
       valeur_venale: '',
@@ -49,7 +68,14 @@ export default function QuoteModal({ isOpen, onClose }) {
       puissance: '',
       classe: ''
     });
-  };
+  } catch (error) {
+    console.error('Request failed:', error);
+    alert('Erreur réseau lors de la récupération du devis.');
+  } finally {
+    setLoading(false); // stop loading
+  }
+};
+
 
   if (!isOpen) return null;
 
@@ -127,10 +153,10 @@ export default function QuoteModal({ isOpen, onClose }) {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white appearance-none"
               >
                 <option value="">Sélectionner le type de contrat</option>
-                <option value="tous_risques">Tous risques</option>
-                <option value="tiers_complet">Tiers complet</option>
-                <option value="tiers_simple">Tiers simple</option>
-                <option value="vol_incendie">Vol et incendie</option>
+<option value="r">Tous risques</option>
+<option value="tc">Tiers complet</option>
+<option value="ts">Tiers simple</option>
+<option value="vi">Vol et incendie</option>
               </select>
             </div>
 
@@ -262,11 +288,16 @@ export default function QuoteModal({ isOpen, onClose }) {
               Retour au chat
             </button>
             <button
-              onClick={handleSubmit}
-              className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition"
-            >
-              Demander un devis
-            </button>
+  onClick={handleSubmit}
+  disabled={loading}
+  className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition ${
+    loading
+      ? 'bg-gray-400 text-white cursor-not-allowed'
+      : 'bg-red-600 text-white hover:bg-red-700'
+  }`}
+>
+  {loading ? '⏳ Chargement...' : 'Demander un devis'}
+</button>
           </div>
         </div>
       </div>
