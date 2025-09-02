@@ -26,3 +26,4 @@ docker-compose*.yml
 agent_memory.json
 KG/
 process_PDF/
+qdrant_storage/

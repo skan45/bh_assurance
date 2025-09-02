@@ -43,3 +43,4 @@ vectorstore/
 
 # Neo4j dumps
 *.dump
+qdrant_storage/

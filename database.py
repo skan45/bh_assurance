@@ -14,3 +14,4 @@ DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT
 
 database = Database(DATABASE_URL)
 
+

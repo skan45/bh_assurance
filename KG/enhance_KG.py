@@ -152,10 +152,10 @@ def main():
         default="./added_data/Données_Assurance_S1.2_S2.csv",
         help="Path to the Contrat-Garanties CSV file (default: added_data\\Données_Assurance_S1.2_S2.csv in current folder)"
     )
-    parser.add_argument("--uri", default=os.getenv("NEO4J_URI", ""), help="Neo4j URI (default: neo4j://127.0.0.1:7687 for Neo4j Desktop)")
-    parser.add_argument("--user", default=os.getenv("NEO4J_USER", ""), help="Neo4j username (default: neo4j)")
-    parser.add_argument("--password", default=os.getenv("NEO4J_PASSWORD", ""), help="Neo4j password (set NEO4J_PASSWORD env var or provide via --password)")
-    parser.add_argument("--database", default=os.getenv("NEO4J_DATABASE", ""), help="Database name (default: neo4j for Neo4j Desktop)")
+    parser.add_argument("--uri", default="neo4j://127.0.0.1:7687", help="Neo4j URI (default: neo4j://127.0.0.1:7687 for Neo4j Desktop)")
+    parser.add_argument("--user", default="neo4j", help="Neo4j username (default: neo4j)")
+    parser.add_argument("--password", default="azerty2002", help="Neo4j password (set NEO4J_PASSWORD env var or provide via --password)")
+    parser.add_argument("--database", default="neo4j", help="Database name (default: neo4j for Neo4j Desktop)")
     parser.add_argument("--batch-size", type=int, default=1000)
     parser.add_argument("--no-progress", action="store_true", help="Disable tqdm progress bars")
     args = parser.parse_args()

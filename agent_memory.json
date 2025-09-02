@@ -101,5 +101,33 @@
       "c.lib_etat_contrat"
     ],
     "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-31T16:58:18.147644Z",
+    "query": "Donne-moi les garanties et leur capital assuré pour le contrat 2025611009101 ?",
+    "cypher": "MATCH (c:Contrat {num_contrat: 2025611009101})-[:INCLUT]->(g:Garantie)\nRETURN g.lib_garantie, g.capital_assure\nLIMIT 100",
+    "result_keys": [
+      "g.lib_garantie",
+      "g.capital_assure"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-31T17:00:43.014912Z",
+    "query": "Quel est le statut du sinistre numéro 20033000932  pour le client avec REF_PERSONNE 1183 ?",
+    "cypher": "MATCH (p:PersonneMorale|PersonnePhysique)-[:A_SOUSCRIT]->(c:Contrat)<-[:CONCERNE]-(s:Sinistre)\nWHERE p.ref_personne = 1183 AND s.num_sinistre = 20033000932\nRETURN s.lib_etat_sinistre\nLIMIT 100",
+    "result_keys": [
+      "s.lib_etat_sinistre"
+    ],
+    "result_count": 1
+  },
+  {
+    "timestamp": "2025-08-31T17:01:23.741899Z",
+    "query": "Quel est le statut de paiement des contrats du client avec REF_PERSONNE 12106 ?",
+    "cypher": "MATCH (p:PersonneMorale|PersonnePhysique)-[:A_SOUSCRIT]->(c:Contrat)\nWHERE p.ref_personne = 12106\nRETURN c.lib_etat_contrat AS statut_paiement\nLIMIT 100",
+    "result_keys": [
+      "statut_paiement"
+    ],
+    "result_count": 1
   }
 ]
