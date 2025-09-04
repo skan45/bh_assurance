@@ -42,40 +42,25 @@ CONVERSATION_FILE = "conversation_history.json"
 
 async def summarize_text(text: str) -> str:
     """
-    Summarizes a user query into a short 3-5 word phrase to be used as chat name.
-    Uses Ollama's local LLaMA 2 7B model.
+    Summarizes a user query into a short phrase using the first and last meaningful word + timestamp.
     """
-    prompt = f"Summarize this user query into 3-5 words suitable for a chat name:\n\n{text}"
+    # Extract words (ignores punctuation)
+    words = re.findall(r'\b\w+\b', text)
 
-    try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0)) as client:
-            response = await client.post(
-                f"{OLLAMA_URL}/v1/completions",
-                json={
-                    "model": "llama2:7b",  # Ollama model
-                    "prompt": prompt,
-                    "stream": False       # Important: get full response in one go
-                }
-            )
+    # Fallback if no words found
+    if not words:
+        words = ["New", "Chat"]
 
-        if response.status_code != 200:
-            print(f"Ollama returned status {response.status_code}: {response.text}")
-            return "New Chat"
+    # Take first and last word
+    first_last = [words[0], words[-1]] if len(words) > 1 else [words[0], words[0]]
 
-        data = response.json()
-        summary = data.get("response", "").strip()
+    # Get current timestamp in YYYYMMDD-HHMMSS format
+    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 
-        # Fallback if the model gives an empty response
-        if not summary:
-            summary = "New Chat"
+    # Concatenate words and timestamp
+    summary = "_".join(first_last) + "_" + timestamp
 
-        return summary
-    except httpx.TimeoutException:
-        print("Timeout when calling Ollama for summarization")
-        return "New Chat"
-    except Exception as e:
-        print(f"Error calling Ollama for summarization: {e}")
-        return "New Chat"
+    return summary
 def save_conversation_to_file():
     try:
         with open(CONVERSATION_FILE, "w", encoding="utf-8") as f:
@@ -111,7 +96,7 @@ async def ask_bh_assurance(query: str, embedding_model):
         hits = client.search(
             collection_name=QDRANT_COLLECTION,
             query_vector=query_embedding,
-            limit=5
+            limit=3
         )
     except Exception as e:
         return f"Error querying Qdrant: {str(e)}"
@@ -132,24 +117,22 @@ async def ask_bh_assurance(query: str, embedding_model):
             history_text += f"Q{i+1}: {q}\nA{i+1}: {r}\n"
 
     prompt = f"""
-You are a friendly, helpful, and knowledgeable assistant for BH Assurance, a leading insurance provider in Tunisia. Answer user questions about BH Assurance auto insurance contracts in a conversational, chat-like style—just like ChatGPT-4. Be clear, supportive, and approachable. Use specific details from BH Assurance documentation naturally, but don't reference the source. If you don't know something, give a general but helpful answer and suggest contacting BH Assurance for more info.
-
-Do not include any greeting—start answering the user's question directly.
+Vous êtes un assistant amical de BH Assurance en Tunisie. Répondez aux questions sur l'assurance auto de manière claire et conversationnelle. Utilisez le contexte naturellement, sans mentionner les sources. Si vous ne savez pas, donnez une réponse générale utile et conseillez de contacter BH Assurance.
 
 {history_text}
-User: {query}
+Utilisateur : {query}
 
-Context from BH Assurance documentation:
+Contexte :
 {context}
 
-Respond in a chat format, making sure your answer is friendly, direct, and easy to understand.
+Répondez de manière concise et compréhensible.
 """
 
-    # Call Ollama API instead of OpenAI
+    
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=30.0)) as client:
             response = await client.post(
-                f"{OLLAMA_URL}/v1/completions",
+                f"{OLLAMA_URL}/api/generate",
                 json={
                     "model": "llama2:7b",
                     "prompt": prompt,
@@ -292,7 +275,7 @@ Return only the Cypher query. Do not include extra text or explanations.
         async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=30.0)) as client:
             try:
                 response = await client.post(
-                    f"{OLLAMA_URL}/v1/completions",
+                    f"{OLLAMA_URL}/api/generate",
                     json={
                         "model": "llama2:7b",
                         "prompt": prompt,
@@ -346,7 +329,7 @@ Renvoie seulement la requête Cypher corrigée.
         async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=30.0)) as client:
             try:
                 response = await client.post(
-                    f"{OLLAMA_URL}/v1/completions",
+                    f"{OLLAMA_URL}/api/generate",
                     json={
                         "model": "llama2:7b",
                         "prompt": repair_prompt,
@@ -374,7 +357,7 @@ Réponds en français, commence par "Non", explique brièvement et suggère une 
             async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=30.0)) as client:
                 try:
                     response = await client.post(
-                        f"{OLLAMA_URL}/v1/completions",
+                        f"{OLLAMA_URL}/api/generate",
                         json={
                             "model": "llama2:7b",
                             "prompt": neg_prompt,
@@ -399,7 +382,7 @@ Réponse formatée:"""
         async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=30.0)) as client:
             try:
                 response = await client.post(
-                    f"{OLLAMA_URL}/v1/completions",
+                    f"{OLLAMA_URL}/api/generate",
                     json={
                         "model": "llama2:7b",
                         "prompt": prompt,
@@ -416,8 +399,8 @@ Réponse formatée:"""
         formatted_response = re.sub(r"\b(euros?|EUROS?)\b", "TND", formatted_response, flags=re.IGNORECASE)
         return formatted_response
 
-    def execute_query(self, natural_language_query: str):
-        cypher_query = self._generate_cypher_query(natural_language_query)
+    async def execute_query(self, natural_language_query: str):
+        cypher_query = await self._generate_cypher_query(natural_language_query)
         print(f"Generated Cypher Query: {cypher_query}")
         attempts = 0
         last_error = None
@@ -433,7 +416,7 @@ Réponse formatée:"""
                 last_error = msg
                 if ('pattern expression' in msg.lower() or 'syntax error' in msg.lower() or 'not defined' in msg.lower()):
                     print("Attempting to auto-fix Cypher after error: ", msg)
-                    cypher_query = self._refine_query_on_error(natural_language_query, cypher_query, msg)
+                    cypher_query = await  self._refine_query_on_error(natural_language_query, cypher_query, msg)
                     print(f"Refined Cypher Query (attempt {attempts+2}): {cypher_query}")
                     attempts += 1
                     continue
@@ -442,7 +425,7 @@ Réponse formatée:"""
         if attempts == 3 and last_error:
             raise RuntimeError(f"Failed after retries. Last error: {last_error}")
         self._update_conversation_context(natural_language_query, records)
-        formatted_result = self.format_results(natural_language_query, records)
+        formatted_result = await self.format_results(natural_language_query, records)
         self._add_memory(natural_language_query, cypher_query, records[:1])
         return formatted_result
 
@@ -476,33 +459,31 @@ Réponse formatée:"""
             self._conversation['sinistres'] = list(sorted(sin_numbers))[-50:]
 
 # Classification function to determine query type
-async def classify_query(query: str) -> str:
-    prompt = f"""
-Classify the following query into one of two categories:
-- "product": If the query is about general understanding of insurance products, guarantees, differences between formulas, or general contract details without referencing specific clients, sinistres, or payments.
-- "client": If the query is about specific client data, such as guarantees subscribed by a client, if a sinistre is covered, payment status, sinistre status, or coverage of a sinistre for a client.
-
-Query: {query}
-
-Return only the category name: "product" or "client".
-"""
-
-    async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0)) as client:
-        try:
-            resp = await client.post(
-                f"{OLLAMA_URL}/v1/completions",
-                json={"model": "llama2:7b", "prompt": prompt, "stream": False}
-            )
-            resp.raise_for_status()
-            result = resp.json()
-            # Ollama may return text in 'response' field
-            category = result.get("response", "").strip().lower()
-            if category not in ["product", "client"]:
-                category = "product"
-            return category
-        except Exception as e:
-            print("Error calling Ollama:", e)
-            return "product"
 
 
+def classify_query(query: str) -> str:
+    """
+    Classify a BH Assurance query as 'product' or 'client' using regex.
+    """
+
+    query_lower = query.lower()
+
+    # Patterns indicating client-specific questions
+    client_patterns = [
+        r"\bsinistre\b",
+        r"\bref_personne\b",
+        r"\bcontrat.*numéro\b",
+        r"\bstatut de paiement\b",
+        r"\bcapital assuré\b",
+        r"\bcouverture.*pour.*client\b",
+        r"\bgarantie.*client\b"
+    ]
+
+    # Check if any client-specific pattern matches
+    for pattern in client_patterns:
+        if re.search(pattern, query_lower):
+            return "client"
+
+    # Default to product if no client-specific patterns matched
+    return "product"
 

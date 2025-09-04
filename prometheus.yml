@@ -1,0 +1,33 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # --- PostgreSQL Exporter ---
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres_exporter:9187']
+
+  # --- Redis Exporter ---
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis_exporter:9121']
+
+  # --- Neo4j Exporter ---
+  - job_name: 'neo4j'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['neo4j_exporter:2004']
+
+  # --- Qdrant Exporter ---
+  - job_name: 'qdrant'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['qdrant_exporter:9310']
+
+  # --- Optional: Ollama metrics (if available) ---
+  - job_name: 'ollama'
+    static_configs:
+      - targets: ['ollama-exporter:8001']
+
