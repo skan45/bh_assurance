@@ -16,11 +16,11 @@ cur = conn.cursor()
 cur.execute("""
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
+    full_name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,           -- added email
     password_hash TEXT NOT NULL,
-    ref_person BIGINT,             -- optional client reference number
-    matricule_fiscale NUMERIC,     -- optional tax ID (can be very long)
+    cin VARCHAR(20) UNIQUE NOT NULL,      -- national identity card number
+    matricule_fiscale NUMERIC,            -- optional tax ID
     created_at TIMESTAMP DEFAULT NOW()
 );
 """)
@@ -64,3 +64,4 @@ cur.close()
 conn.close()
 
 print("Migration complete ✅")
+
