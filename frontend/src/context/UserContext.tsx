@@ -1,10 +1,11 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 interface User {
-  id: number;
-  full_name: string;
-  email: string;
+  id?: number;
+  full_name?: string;
+  email?: string;
   avatarUrl?: string;
+  visitor?: boolean; // added flag
 }
 
 interface UserContextType {
@@ -22,9 +23,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserProfile = async () => {
     const token = localStorage.getItem('auth_token');
-    
+
     if (!token) {
-      setUser(null);
+      setUser({ visitor: true });
       setLoading(false);
       return;
     }
@@ -39,21 +40,19 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (!response.ok) {
-        // If token is invalid, remove it
         if (response.status === 401) {
           localStorage.removeItem('auth_token');
-          setUser(null);
-          return;
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Set as visitor if request fails
+        setUser({ visitor: true });
+        return;
       }
 
       const data = await response.json();
       setUser(data);
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      // On error, clear user data but don't remove token (might be network issue)
-      setUser(null);
+      setUser({ visitor: true });
     } finally {
       setLoading(false);
     }
@@ -63,15 +62,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     fetchUserProfile();
   }, []);
 
-  // Listen for storage changes (logout from another tab)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'auth_token') {
         if (!e.newValue) {
-          // Token was removed
-          setUser(null);
+          setUser({ visitor: true });
         } else {
-          // Token was added/changed
           fetchUserProfile();
         }
       }

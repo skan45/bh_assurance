@@ -275,11 +275,15 @@ const ChatInterface = () => {
         ) : messages.length === 0 ? (
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold text-foreground mb-2">
-                Bonjour {user?.full_name || "Loading..."} 👋
-              </h1>
-              <p className="text-muted-foreground">Comment je peux vous assister aujourd'hui ?</p>
-            </div>
+  <h1 className="text-2xl font-bold text-foreground mb-2">
+    {!user 
+      ? "Chargement..." 
+      : user.full_name 
+        ? `Bonjour ${user.full_name} 👋`
+        : "Bonjour visiteur 👋"}
+  </h1>
+  <p className="text-muted-foreground">Comment je peux vous assister aujourd'hui ?</p>
+</div>
             <div className="grid gap-4 md:grid-cols-3">
               {optionCards.map((card, index) => (
                 <Card
