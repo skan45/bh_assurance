@@ -37,11 +37,11 @@ def get_query_router(redis_client, embedding_model, neo4j_agent, database: Datab
             return {"response": json.loads(cached_response)}
 
         # --- Classify and get response ---
-        category = await classify_query(query_text)
+        category =  classify_query(query_text)
         if category == "product":
-            response = await ask_bh_assurance(query_text, embedding_model)
+            response = ask_bh_assurance(query_text, embedding_model)
         else:
-            response = await neo4j_agent.execute_query(query_text, user_identifier)
+            response =  neo4j_agent.execute_query(query_text, user_identifier)
 
         # --- Store in Redis ---
         await redis_client.setex(query_text, CACHE_TTL_SECONDS, json.dumps(response))

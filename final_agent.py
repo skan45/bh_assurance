@@ -10,6 +10,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from typing import List, Dict, Any
 import requests
+from qdrant_client import QdrantClient
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm

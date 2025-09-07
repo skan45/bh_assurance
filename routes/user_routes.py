@@ -6,11 +6,6 @@ from pydantic import BaseModel
 router = APIRouter()
 class ContactMessage(BaseModel):
     sujet: str = None  # Optional subject
-    message: str 
-
-
-class ContactMessage(BaseModel):
-    sujet: str = None  # Optional subject
     message: str
 
 def get_user_router(database: Database):
@@ -63,7 +58,7 @@ def get_user_router(database: Database):
         user_id = int(payload["sub"])  # assuming 'sub' in JWT contains user ID
 
         query = """
-        SELECT username, email
+        SELECT full_name, email
         FROM users
         WHERE id = :user_id
         """
@@ -73,7 +68,7 @@ def get_user_router(database: Database):
             raise HTTPException(status_code=404, detail="User not found")
 
         return {
-            "username": user["username"],
+            "full_name": user["full_name"],
             "email": user["email"]
         }
 

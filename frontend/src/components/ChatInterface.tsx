@@ -276,7 +276,7 @@ const ChatInterface = () => {
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold text-foreground mb-2">
-                Bonjour {user?.username || "Loading..."} 👋
+                Bonjour {user?.full_name || "Loading..."} 👋
               </h1>
               <p className="text-muted-foreground">Comment je peux vous assister aujourd'hui ?</p>
             </div>

@@ -10,13 +10,13 @@ def check_input(user_input):
 
     if user_input.isdigit():  # It's a CIN
         if user_input in data["CIN"]:
-            print("✅ CIN exists in database.")
+            return True
         else:
-            print("❌ CIN not found.")
+            return False
     else:  # It's a Matricule Fiscale
         if user_input.upper() in [m.upper() for m in data["MATRICULE_FISCALE"]]:
-            print("✅ Matricule Fiscale exists in database.")
+            return True
         else:
-            print("❌ Matricule Fiscale not found.")
+            return False
 
 

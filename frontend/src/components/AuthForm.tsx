@@ -24,7 +24,7 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget as HTMLFormElement);
-    const email = formData.get("username") as string; // login uses email
+    const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
     try {
@@ -41,11 +41,19 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
         toast({ title: "Connexion réussie", description: "Bienvenue dans votre espace BH Assurance" });
         onAuthSuccess();
       } else {
-        toast({ title: "Erreur de connexion", description: data.detail || "Identifiants incorrects", variant: "destructive" });
+        toast({
+          title: "Erreur de connexion",
+          description: data.detail || "Identifiants incorrects",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Login error:", error);
-      toast({ title: "Erreur de connexion", description: "Une erreur s'est produite. Veuillez réessayer.", variant: "destructive" });
+      toast({
+        title: "Erreur de connexion",
+        description: "Une erreur s'est produite. Veuillez réessayer.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +73,11 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
     const matriculeFiscale = (formData.get("matriculeFiscale") as string)?.trim();
 
     if (!cin && !matriculeFiscale) {
-      toast({ title: "Erreur", description: "Veuillez renseigner le CIN ou le matricule fiscale", variant: "destructive" });
+      toast({
+        title: "Erreur",
+        description: "Veuillez renseigner le CIN ou le matricule fiscale",
+        variant: "destructive",
+      });
       setIsLoading(false);
       return;
     }
@@ -92,15 +104,26 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
       const data = await response.json();
 
       if (response.ok) {
-        toast({ title: "Inscription réussie", description: "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter." });
+        toast({
+          title: "Inscription réussie",
+          description: "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
+        });
         const loginTab = document.querySelector('[value="login"]') as HTMLElement;
         loginTab?.click();
       } else {
-        toast({ title: "Erreur d'inscription", description: data.detail || "Une erreur s'est produite lors de l'inscription", variant: "destructive" });
+        toast({
+          title: "Erreur d'inscription",
+          description: data.detail || "Une erreur s'est produite lors de l'inscription",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Register error:", error);
-      toast({ title: "Erreur d'inscription", description: "Une erreur s'est produite. Veuillez réessayer.", variant: "destructive" });
+      toast({
+        title: "Erreur d'inscription",
+        description: "Une erreur s'est produite. Veuillez réessayer.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -120,14 +143,22 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
             <TabsTrigger value="register" className="text-sm font-medium">Inscription</TabsTrigger>
           </TabsList>
 
-          {/* -------------------- Login Tab -------------------- */}
+          {/* -------------------- LOGIN Tab -------------------- */}
           <TabsContent value="login" className="space-y-4">
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-secondary">Nom d'utilisateur</Label>
+                <Label htmlFor="email" className="text-sm font-medium text-secondary">Adresse email</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input id="username" name="username" type="text" placeholder="votre_nom_utilisateur" className="pl-10 h-12 focus:ring-primary focus:border-primary" required disabled={isLoading} />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="votre@email.com"
+                    className="pl-10 h-12 focus:ring-primary focus:border-primary"
+                    required
+                    disabled={isLoading}
+                  />
                 </div>
               </div>
 
@@ -135,34 +166,53 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
                 <Label htmlFor="password" className="text-sm font-medium text-secondary">Mot de passe</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input id="password" name="password" type={showPassword ? "text" : "password"} placeholder="••••••••" className="pl-10 pr-10 h-12 focus:ring-primary focus:border-primary" required disabled={isLoading} />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors" disabled={isLoading}>
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className="pl-10 pr-10 h-12 focus:ring-primary focus:border-primary"
+                    required
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
+                    disabled={isLoading}
+                  >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="remember" />
-                  <Label htmlFor="remember" className="text-sm text-muted-foreground">Se souvenir de moi</Label>
-                </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="remember" />
+                <Label htmlFor="remember" className="text-sm text-muted-foreground">Se souvenir de moi</Label>
               </div>
 
               <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium" disabled={isLoading}>
-                {isLoading ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Connexion...</> : "Se connecter"}
+                {isLoading ? <> <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> Connexion... </> : "Se connecter"}
               </Button>
             </form>
           </TabsContent>
 
-          {/* -------------------- Register Tab -------------------- */}
+          {/* -------------------- REGISTER Tab -------------------- */}
           <TabsContent value="register" className="space-y-4">
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="fullName" className="text-sm font-medium text-secondary">Nom complet</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input id="fullName" name="fullName" type="text" placeholder="Jean Dupont" className="pl-10 h-12 focus:ring-primary focus:border-primary" required disabled={isLoading} />
+                  <Input
+                    id="fullName"
+                    name="fullName"
+                    type="text"
+                    placeholder="Jean Dupont"
+                    className="pl-10 h-12 focus:ring-primary focus:border-primary"
+                    required
+                    disabled={isLoading}
+                  />
                 </div>
               </div>
 
@@ -170,7 +220,15 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
                 <Label htmlFor="registerEmail" className="text-sm font-medium text-secondary">Adresse email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input id="registerEmail" name="registerEmail" type="email" placeholder="votre@email.com" className="pl-10 h-12 focus:ring-primary focus:border-primary" required disabled={isLoading} />
+                  <Input
+                    id="registerEmail"
+                    name="registerEmail"
+                    type="email"
+                    placeholder="votre@email.com"
+                    className="pl-10 h-12 focus:ring-primary focus:border-primary"
+                    required
+                    disabled={isLoading}
+                  />
                 </div>
               </div>
 
@@ -178,7 +236,15 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
                 <Label htmlFor="registerPassword" className="text-sm font-medium text-secondary">Mot de passe</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input id="registerPassword" name="registerPassword" type={showPassword ? "text" : "password"} placeholder="••••••••" className="pl-10 pr-10 h-12 focus:ring-primary focus:border-primary" required disabled={isLoading} />
+                  <Input
+                    id="registerPassword"
+                    name="registerPassword"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className="pl-10 pr-10 h-12 focus:ring-primary focus:border-primary"
+                    required
+                    disabled={isLoading}
+                  />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors" disabled={isLoading}>
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -189,22 +255,29 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
                 <Label htmlFor="confirmPassword" className="text-sm font-medium text-secondary">Confirmer le mot de passe</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input id="confirmPassword" name="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" className="pl-10 pr-10 h-12 focus:ring-primary focus:border-primary" required disabled={isLoading} />
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className="pl-10 pr-10 h-12 focus:ring-primary focus:border-primary"
+                    required
+                    disabled={isLoading}
+                  />
                   <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors" disabled={isLoading}>
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
 
-              {/* CIN / Matricule Fiscale */}
               <div className="space-y-2">
                 <Label htmlFor="cin" className="text-sm font-medium text-secondary">CIN</Label>
-                <Input id="cin" name="cin" type="number" placeholder="12345678" className="h-12 focus:ring-primary focus:border-primary" disabled={isLoading} />
+                <Input id="cin" name="cin" type="text" placeholder="12345678" className="h-12 focus:ring-primary focus:border-primary" disabled={isLoading} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="matriculeFiscale" className="text-sm font-medium text-secondary">Matricule Fiscale</Label>
-                <Input id="matriculeFiscale" name="matriculeFiscale" type="number" placeholder="987654321" className="h-12 focus:ring-primary focus:border-primary" disabled={isLoading} />
+                <Input id="matriculeFiscale" name="matriculeFiscale" type="text" placeholder="987654321" className="h-12 focus:ring-primary focus:border-primary" disabled={isLoading} />
               </div>
 
               <div className="flex items-center space-x-2">
@@ -216,7 +289,9 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
               </div>
 
               <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium" disabled={isLoading}>
-                {isLoading ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Inscription...</> : "S'inscrire"}
+                {isLoading ? <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Inscription...
+                </> : "S'inscrire"}
               </Button>
             </form>
           </TabsContent>

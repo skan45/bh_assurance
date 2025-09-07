@@ -12,13 +12,13 @@ const TopNavigation = () => {
       </div>
       <div className="flex items-center gap-4">
         <Avatar className="h-10 w-10">
-          <AvatarImage src={user?.avatarUrl || avatarImage} alt={user?.username || "User"} />
+          <AvatarImage src={user?.avatarUrl || avatarImage} alt={user?.full_name || "User"} />
           <AvatarFallback className="bg-primary text-primary-foreground font-medium">
-            {user?.username ? user.username.split(" ").map(n => n[0]).join("") : "SG"}
+            {user?.full_name ? user.full_name.split(" ").map(n => n[0]).join("") : "SG"}
           </AvatarFallback>
         </Avatar>
         <div className="text-sm">
-          <div className="font-medium text-foreground">{user?.username || "Loading..."}</div>
+          <div className="font-medium text-foreground">{user?.full_name || "Loading..."}</div>
           <div className="text-muted-foreground">{user?.email || "Loading..."}</div>
         </div>
       </div>
@@ -27,3 +27,4 @@ const TopNavigation = () => {
 };
 
 export default TopNavigation;
+

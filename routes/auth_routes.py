@@ -41,6 +41,7 @@ def get_auth_router(database: Database):
      if user.cin:
         if not check_input(user.cin):
             raise HTTPException(status_code=400, detail="CIN not found in external database")
+     
      if user.matricule_fiscale:
         if not check_input(user.matricule_fiscale):
             raise HTTPException(status_code=400, detail="Matricule Fiscale not found in external database")
