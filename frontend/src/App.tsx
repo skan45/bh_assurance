@@ -66,20 +66,24 @@ const LoginWrapper = ({ setIsAuthenticated }: { setIsAuthenticated: (val: boolea
    App
 -------------------------------- */
 
-const App = () => {
+const AppRoutes = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   // Check authentication status on app load
   useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem("auth_token");
-      setIsAuthenticated(!!token);
-      setIsLoading(false);
-    };
-
-    checkAuth();
+    const token = localStorage.getItem("auth_token");
+    setIsAuthenticated(!!token);
+    setIsLoading(false);
   }, []);
+
+  // Logout handler
+  const handleLogout = () => {
+    localStorage.removeItem("auth_token"); // remove token
+    setIsAuthenticated(false);              // update state
+    navigate("/login");                     // redirect to login
+  };
 
   // Loading state
   if (isLoading) {
@@ -94,46 +98,60 @@ const App = () => {
   }
 
   return (
+    <Routes>
+      {/* Main app routes */}
+      {isAuthenticated && (
+        <>
+          <Route
+            path="/"
+            element={
+              <MainLayout onLogout={handleLogout}>
+                <ChatInterface />
+              </MainLayout>
+            }
+          />
+          <Route
+            path="/chat/:chatId"
+            element={
+              <MainLayout onLogout={handleLogout}>
+                <ChatInterface />
+              </MainLayout>
+            }
+          />
+        </>
+      )}
+
+      {/* Auth route (standalone layout, no nav/sidebar) */}
+      <Route
+        path="/login"
+        element={<LoginWrapper setIsAuthenticated={setIsAuthenticated} />}
+      />
+
+      {/* 404 page */}
+      <Route
+        path="*"
+        element={
+          isAuthenticated ? (
+            <MainLayout onLogout={handleLogout}>
+              <NotFound />
+            </MainLayout>
+          ) : (
+            <LoginWrapper setIsAuthenticated={setIsAuthenticated} />
+          )
+        }
+      />
+    </Routes>
+  );
+};
+
+const App = () => {
+  return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            {/* Main app routes */}
-            <Route
-              path="/"
-              element={
-                <MainLayout onLogout={() => setIsAuthenticated(false)}>
-                  <ChatInterface />
-                </MainLayout>
-              }
-            />
-            <Route
-              path="/chat/:chatId"
-              element={
-                <MainLayout onLogout={() => setIsAuthenticated(false)}>
-                  <ChatInterface />
-                </MainLayout>
-              }
-            />
-
-            {/* Auth route (standalone layout, no nav/sidebar) */}
-            <Route
-              path="/login"
-              element={<LoginWrapper setIsAuthenticated={setIsAuthenticated} />}
-            />
-
-            {/* 404 page */}
-            <Route
-              path="*"
-              element={
-                <MainLayout onLogout={() => setIsAuthenticated(false)}>
-                  <NotFound />
-                </MainLayout>
-              }
-            />
-          </Routes>
+          <AppRoutes />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

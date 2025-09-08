@@ -7,12 +7,69 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/context/LanguageContext";
+import { useUser } from "@/context/UserContext";
 
 interface AuthFormProps {
   onAuthSuccess: () => void;
 }
 
+const translations = {
+  fr: {
+    login: {
+      title: "Espace Client",
+      subtitle: "Accédez à votre compte",
+      email: "Adresse email",
+      password: "Mot de passe",
+      remember: "Se souvenir de moi",
+      loginButton: "Se connecter",
+      loginError: "Identifiants incorrects",
+      loginNetworkError: "Une erreur s'est produite. Veuillez réessayer.",
+    },
+    register: {
+      fullName: "Nom complet",
+      email: "Adresse email",
+      password: "Mot de passe",
+      confirmPassword: "Confirmer le mot de passe",
+      cin: "CIN",
+      matriculeFiscale: "Matricule Fiscale",
+      terms: "J'accepte les conditions d'utilisation",
+      registerButton: "S'inscrire",
+      passwordMismatch: "Les mots de passe ne correspondent pas",
+      missingID: "Veuillez renseigner le CIN ou le matricule fiscale",
+    },
+  },
+  ar: {
+    login: {
+      title: "مساحة العميل",
+      subtitle: "قم بالوصول إلى حسابك",
+      email: "البريد الإلكتروني",
+      password: "كلمة المرور",
+      remember: "تذكرني",
+      loginButton: "تسجيل الدخول",
+      loginError: "بيانات الدخول غير صحيحة",
+      loginNetworkError: "حدث خطأ، حاول مرة أخرى",
+    },
+    register: {
+      fullName: "الاسم الكامل",
+      email: "البريد الإلكتروني",
+      password: "كلمة المرور",
+      confirmPassword: "تأكيد كلمة المرور",
+      cin: "CIN",
+      matriculeFiscale: "الرقم الضريبي",
+      terms: "أوافق على شروط الاستخدام",
+      registerButton: "تسجيل",
+      passwordMismatch: "كلمات المرور غير متطابقة",
+      missingID: "يرجى إدخال CIN أو الرقم الضريبي",
+    },
+  },
+};
+
 const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
+  const { language } = useLanguage();
+  const t = translations[language];
+  const { fetchUserProfile } = useUser();
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,22 +95,17 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
 
       if (response.ok) {
         localStorage.setItem("auth_token", data.access_token);
-        toast({ title: "Connexion réussie", description: "Bienvenue dans votre espace BH Assurance" });
+        toast({ title: t.login.loginButton, description: t.login.title });
+
+        // Fetch user profile immediately after login
+        await fetchUserProfile();
+
         onAuthSuccess();
       } else {
-        toast({
-          title: "Erreur de connexion",
-          description: data.detail || "Identifiants incorrects",
-          variant: "destructive",
-        });
+        toast({ title: t.login.loginError, description: data.detail, variant: "destructive" });
       }
     } catch (error) {
-      console.error("Login error:", error);
-      toast({
-        title: "Erreur de connexion",
-        description: "Une erreur s'est produite. Veuillez réessayer.",
-        variant: "destructive",
-      });
+      toast({ title: t.login.loginError, description: t.login.loginNetworkError, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -73,17 +125,13 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
     const matriculeFiscale = (formData.get("matriculeFiscale") as string)?.trim();
 
     if (!cin && !matriculeFiscale) {
-      toast({
-        title: "Erreur",
-        description: "Veuillez renseigner le CIN ou le matricule fiscale",
-        variant: "destructive",
-      });
+      toast({ title: t.register.missingID, variant: "destructive" });
       setIsLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
-      toast({ title: "Erreur", description: "Les mots de passe ne correspondent pas", variant: "destructive" });
+      toast({ title: t.register.passwordMismatch, variant: "destructive" });
       setIsLoading(false);
       return;
     }
@@ -92,78 +140,51 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          full_name,
-          email,
-          password,
-          cin: cin || null,
-          matricule_fiscale: matriculeFiscale || null,
-        }),
+        body: JSON.stringify({ full_name, email, password, cin: cin || null, matricule_fiscale: matriculeFiscale || null }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        toast({
-          title: "Inscription réussie",
-          description: "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
-        });
+        toast({ title: t.register.registerButton, description: t.registerButton });
         const loginTab = document.querySelector('[value="login"]') as HTMLElement;
         loginTab?.click();
       } else {
-        toast({
-          title: "Erreur d'inscription",
-          description: data.detail || "Une erreur s'est produite lors de l'inscription",
-          variant: "destructive",
-        });
+        toast({ title: t.register.registerButton, description: data.detail, variant: "destructive" });
       }
     } catch (error) {
-      console.error("Register error:", error);
-      toast({
-        title: "Erreur d'inscription",
-        description: "Une erreur s'est produite. Veuillez réessayer.",
-        variant: "destructive",
-      });
+      toast({ title: t.register.registerButton, description: t.login.loginNetworkError, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // -------------------- JSX --------------------
   return (
     <Card className="w-full max-w-md shadow-card">
       <CardHeader className="text-center pb-2">
-        <h2 className="text-2xl font-bold text-secondary">Espace Client</h2>
-        <p className="text-muted-foreground">Accédez à votre compte</p>
+        <h2 className="text-2xl font-bold text-secondary">{t.login.title}</h2>
+        <p className="text-muted-foreground">{t.login.subtitle}</p>
       </CardHeader>
       <CardContent className="p-6">
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="login" className="text-sm font-medium">Connexion</TabsTrigger>
-            <TabsTrigger value="register" className="text-sm font-medium">Inscription</TabsTrigger>
+            <TabsTrigger value="login">{language === "fr" ? "Connexion" : "تسجيل الدخول"}</TabsTrigger>
+            <TabsTrigger value="register">{language === "fr" ? "Inscription" : "تسجيل"}</TabsTrigger>
           </TabsList>
 
-          {/* -------------------- LOGIN Tab -------------------- */}
+          {/* LOGIN FORM */}
           <TabsContent value="login" className="space-y-4">
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium text-secondary">Adresse email</Label>
+                <Label htmlFor="email">{t.login.email}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="votre@email.com"
-                    className="pl-10 h-12 focus:ring-primary focus:border-primary"
-                    required
-                    disabled={isLoading}
-                  />
+                  <Input id="email" name="email" placeholder={t.login.email} className="pl-10 h-12" required />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-secondary">Mot de passe</Label>
+                <Label htmlFor="password">{t.login.password}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -171,16 +192,10 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
                     name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    className="pl-10 pr-10 h-12 focus:ring-primary focus:border-primary"
+                    className="pl-10 pr-10 h-12"
                     required
-                    disabled={isLoading}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
-                    disabled={isLoading}
-                  >
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3">
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
@@ -188,110 +203,48 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
 
               <div className="flex items-center space-x-2">
                 <Checkbox id="remember" />
-                <Label htmlFor="remember" className="text-sm text-muted-foreground">Se souvenir de moi</Label>
+                <Label htmlFor="remember">{t.login.remember}</Label>
               </div>
 
-              <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium" disabled={isLoading}>
-                {isLoading ? <> <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> Connexion... </> : "Se connecter"}
+              <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium">
+                {isLoading ? "Connexion..." : t.login.loginButton}
               </Button>
             </form>
           </TabsContent>
 
-          {/* -------------------- REGISTER Tab -------------------- */}
+          {/* REGISTER FORM */}
           <TabsContent value="register" className="space-y-4">
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="fullName" className="text-sm font-medium text-secondary">Nom complet</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    placeholder="Jean Dupont"
-                    className="pl-10 h-12 focus:ring-primary focus:border-primary"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
+                <Label htmlFor="fullName">{t.register.fullName}</Label>
+                <Input id="fullName" name="fullName" placeholder={t.register.fullName} required />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="registerEmail" className="text-sm font-medium text-secondary">Adresse email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="registerEmail"
-                    name="registerEmail"
-                    type="email"
-                    placeholder="votre@email.com"
-                    className="pl-10 h-12 focus:ring-primary focus:border-primary"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
+                <Label htmlFor="registerEmail">{t.register.email}</Label>
+                <Input id="registerEmail" name="registerEmail" placeholder={t.register.email} required />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="registerPassword" className="text-sm font-medium text-secondary">Mot de passe</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="registerPassword"
-                    name="registerPassword"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    className="pl-10 pr-10 h-12 focus:ring-primary focus:border-primary"
-                    required
-                    disabled={isLoading}
-                  />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors" disabled={isLoading}>
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+                <Label htmlFor="registerPassword">{t.register.password}</Label>
+                <Input id="registerPassword" name="registerPassword" type={showPassword ? "text" : "password"} placeholder="••••••••" required />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-sm font-medium text-secondary">Confirmer le mot de passe</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    className="pl-10 pr-10 h-12 focus:ring-primary focus:border-primary"
-                    required
-                    disabled={isLoading}
-                  />
-                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors" disabled={isLoading}>
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+                <Label htmlFor="confirmPassword">{t.register.confirmPassword}</Label>
+                <Input id="confirmPassword" name="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" required />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="cin" className="text-sm font-medium text-secondary">CIN</Label>
-                <Input id="cin" name="cin" type="text" placeholder="12345678" className="h-12 focus:ring-primary focus:border-primary" disabled={isLoading} />
+                <Label htmlFor="cin">{t.register.cin}</Label>
+                <Input id="cin" name="cin" />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="matriculeFiscale" className="text-sm font-medium text-secondary">Matricule Fiscale</Label>
-                <Input id="matriculeFiscale" name="matriculeFiscale" type="text" placeholder="987654321" className="h-12 focus:ring-primary focus:border-primary" disabled={isLoading} />
+                <Label htmlFor="matriculeFiscale">{t.register.matriculeFiscale}</Label>
+                <Input id="matriculeFiscale" name="matriculeFiscale" />
               </div>
-
               <div className="flex items-center space-x-2">
                 <Checkbox id="terms" required />
-                <Label htmlFor="terms" className="text-sm text-muted-foreground">
-                  J'accepte les{" "}
-                  <button type="button" className="text-primary hover:text-primary/80 transition-colors underline">conditions d'utilisation</button>
-                </Label>
+                <Label htmlFor="terms">{t.register.terms}</Label>
               </div>
-
-              <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium" disabled={isLoading}>
-                {isLoading ? <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Inscription...
-                </> : "S'inscrire"}
+              <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium">
+                {isLoading ? "Inscription..." : t.register.registerButton}
               </Button>
             </form>
           </TabsContent>
@@ -302,4 +255,3 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
 };
 
 export default AuthForm;
-

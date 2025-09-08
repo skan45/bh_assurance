@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface ChatRoom {
   chat_id: number;
@@ -11,6 +12,7 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const token = localStorage.getItem('auth_token');
+  const { language } = useLanguage(); // <- language context
 
   // Get current chat ID from URL
   const currentChatId = location.pathname === '/' ? null : 
@@ -52,11 +54,15 @@ const Sidebar = () => {
             currentChatId === null ? 'bg-accent' : ''
           }`}
         >
-          <span className="text-sm text-foreground">Nouvelle conversation</span>
+          <span className="text-sm text-foreground">
+            {language === "fr" ? "Nouvelle conversation" : "محادثة جديدة"}
+          </span>
         </div>
 
         {chatRooms.length === 0 ? (
-          <div className="text-sm text-muted-foreground">Aucune conversation</div>
+          <div className="text-sm text-muted-foreground">
+            {language === "fr" ? "Aucune conversation" : "لا توجد محادثات"}
+          </div>
         ) : (
           chatRooms.map((chat) => (
             <div
