@@ -12,6 +12,7 @@ The chatbot aims to:
 - **Simplify Claims Processing**: Enable clients to check claim status and submit new claims through conversational interface
 - **Drive Business Growth**: Help prospects explore insurance products and services to generate new leads
 - **Reduce Support Costs**: Automate common inquiries to reduce workload on customer service teams
+- **Quote Generation**: generates insurance quotes given information provided by the client 
 
 ### Target Users
 
