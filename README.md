@@ -57,7 +57,7 @@ The chatbot aims to:
 
 ```bash
 git clone <repository-url>
-cd bh-assurance-chatbot
+cd bh_assurance
 ```
 
 ### 2. Automated Setup Script
