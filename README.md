@@ -56,7 +56,7 @@ The chatbot aims to:
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/skan45/bh_assurance.git
 cd bh_assurance
 ```
 
